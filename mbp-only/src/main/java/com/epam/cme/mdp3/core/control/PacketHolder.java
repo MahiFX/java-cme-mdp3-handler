@@ -13,7 +13,8 @@
 package com.epam.cme.mdp3.core.control;
 
 import com.epam.cme.mdp3.MdpPacket;
-import net.openhft.chronicle.bytes.NativeBytesStore;
+import net.openhft.chronicle.bytes.internal.NativeBytesStore;
+import net.openhft.chronicle.core.io.ReferenceOwner;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -34,7 +35,7 @@ public class PacketHolder {
             packetSize = mdpPacket.getPacketSize();
 
             if (store.capacity() < packetSize) {
-                store.release();
+                store.release(ReferenceOwner.INIT);
                 store = NativeBytesStore.nativeStoreWithFixedCapacity(packetSize);
             }
             mdpPacket.buffer().copyTo(this.store);
@@ -65,6 +66,6 @@ public class PacketHolder {
 
     public void release() {
         seqNumHolder = 0;
-        this.store.release();
+        this.store.release(ReferenceOwner.INIT);
     }
 }

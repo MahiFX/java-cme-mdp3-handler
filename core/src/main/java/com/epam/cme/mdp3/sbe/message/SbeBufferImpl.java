@@ -13,6 +13,7 @@
 package com.epam.cme.mdp3.sbe.message;
 
 import net.openhft.chronicle.bytes.BytesStore;
+import net.openhft.chronicle.core.io.ReferenceOwner;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -80,7 +81,7 @@ public class SbeBufferImpl extends AbstractSbeBuffer implements SbeBuffer {
 
     @Override
     public void release() {
-        this.bytes.release();
+        this.bytes.release(ReferenceOwner.INIT);
     }
 
     @Override
