@@ -20,4 +20,8 @@ public interface OrderBook {
     OrderBookPriceLevel getBid(byte level);
 
     OrderBookPriceLevel getOffer(byte level);
+
+    long getTriggerTime();
+
+    long getTransactTime();
 }

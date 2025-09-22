@@ -18,16 +18,20 @@ import com.epam.cme.mdp3.test.ModelUtils;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @State(Scope.Thread)
 public class BufferBenchmarkTest {
     private MDPOffHeapBuffer buffer;
     private MdpPacket n1;
 
+    private final AtomicLong seqNumHolder = new AtomicLong(0);
+
     @Setup
-    public void init(){
+    public void init() {
         buffer = new MDPOffHeapBuffer(2);
-        n1 = MdpPacket.allocate(); n1.wrapFromBuffer(ModelUtils.getMBOIncrementTestMessage(1));
+        n1 = MdpPacket.allocate();
+        n1.wrapFromBuffer(ModelUtils.getMBOIncrementTestMessage(1));
     }
 
     @Benchmark
@@ -36,8 +40,9 @@ public class BufferBenchmarkTest {
     @Fork(1)
     @Warmup(iterations = 2, time = 3)
     @Measurement(iterations = 3, time = 7)
-    public void test(){
-        buffer.add(n1);
-        buffer.remove();
+    public void test() {
+        long seq = seqNumHolder.incrementAndGet();
+        buffer.add(seq, n1);
+        buffer.remove(seq);
     }
 }

@@ -82,6 +82,9 @@ public class IncrementalRefreshQueue {
         short matchEventIndicator;
         long incrPcktSeqNum;
 
+        long triggerTime;
+        long transactTime;
+
         public IncrementalRefreshQueueEntry(MdpGroupEntry groupEntry) {
             this.groupEntry = groupEntry;
         }

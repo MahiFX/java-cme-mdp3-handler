@@ -1,1 +1,7 @@
 defaultTasks 'clean', 'build', 'distZip', 'distTar'
+
+task publishAll {
+    group = 'publishing'
+    description = 'Publishes all subprojects to Nexus.'
+    dependsOn ':core:publish', ':mbp-only:publish', ':mbp-with-mbo:publish'
+}

@@ -25,6 +25,9 @@ public class MultipleDepthBookHandler extends AbstractOrderBookHandler<OrderBook
     private final OrderBookPriceEntry[] offerLevels;
     private final byte depth;
 
+    private long triggerTime;
+    private long transactTime;
+
     public MultipleDepthBookHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags, final byte depth) {
         super(channelContext, securityId, subscriptionFlags);
         setSubscriptionFlags(subscriptionFlags);
@@ -58,36 +61,40 @@ public class MultipleDepthBookHandler extends AbstractOrderBookHandler<OrderBook
         this.subscribedToTop = MdEventFlags.hasTop(this.subscriptionFlags);
     }
 
-    public void handleSnapshotBidEntry(final MdpGroup snptGroup) {
+    public void handleSnapshotBidEntry(final MdpGroup snptGroup, long triggerTime, long transactTime) {
         final byte level = snptGroup.getInt8(1023);
         if (level > 1 && (!subscribedToEntireBook || level > depth)) return;
         final OrderBookPriceEntry bookPriceLevel = (OrderBookPriceEntry) getBid(level);
-        bookPriceLevel.refreshBookFromMessage(snptGroup);
+        bookPriceLevel.refreshBookFromMessage(snptGroup, triggerTime, transactTime);
     }
 
-    public void handleSnapshotOfferEntry(final MdpGroup snptGroup) {
+    public void handleSnapshotOfferEntry(final MdpGroup snptGroup, long triggerTime, long transactTime) {
         final byte level = snptGroup.getInt8(1023);
         if (level > 1 && (!subscribedToEntireBook || level > depth)) return;
         final OrderBookPriceEntry bookPriceLevel = (OrderBookPriceEntry) getOffer(level);
-        bookPriceLevel.refreshBookFromMessage(snptGroup);
+        bookPriceLevel.refreshBookFromMessage(snptGroup, triggerTime, transactTime);
     }
 
-    public void handleIncrementBidEntry(final FieldSet incrementEntry) {
+    public void handleIncrementBidEntry(final FieldSet incrementEntry, long triggerTime, long transactTime) {
         final byte level = (byte) incrementEntry.getUInt8(1023);
         if (level > 1 && (!subscribedToEntireBook || level > depth)) return;
         this.refreshedBook = true;
+        this.triggerTime = triggerTime;
+        this.transactTime = transactTime;
         if (level == 1) this.refreshedTop = true;
         final MDUpdateAction updateAction = MDUpdateAction.fromFIX(incrementEntry.getUInt8(279));
-        handleIncrementRefresh(bidLevels, level, updateAction, incrementEntry);
+        handleIncrementRefresh(bidLevels, level, updateAction, incrementEntry, triggerTime, transactTime);
     }
 
-    public void handleIncrementOfferEntry(final FieldSet incrementEntry) {
+    public void handleIncrementOfferEntry(final FieldSet incrementEntry, long triggerTime, long transactTime) {
         final byte level = (byte) incrementEntry.getUInt8(1023);
         if (level > 1 && (!subscribedToEntireBook || level > depth)) return;
         this.refreshedBook = true;
+        this.triggerTime = triggerTime;
+        this.transactTime = transactTime;
         if (level == 1) this.refreshedTop = true;
         final MDUpdateAction updateAction = MDUpdateAction.fromFIX(incrementEntry.getUInt8(279));
-        handleIncrementRefresh(offerLevels, level, updateAction, incrementEntry);
+        handleIncrementRefresh(offerLevels, level, updateAction, incrementEntry, triggerTime, transactTime);
     }
 
     protected void deleteEntry(final OrderBookPriceEntry[] levelEntries, final int level) {
@@ -113,16 +120,19 @@ public class MultipleDepthBookHandler extends AbstractOrderBookHandler<OrderBook
         }
     }
 
-    protected void insertEntry(final OrderBookPriceEntry[] levelEntries, final int level, final FieldSet fieldSet) {
+    protected void insertEntry(final OrderBookPriceEntry[] levelEntries, final int level, final FieldSet fieldSet, long triggerTime, long transactTime1) {
+        this.triggerTime = triggerTime;
         for (int i = depth - 1; i > level - 1; i--) {
             levelEntries[i].refreshFromAnotherEntry(levelEntries[i - 1]);
         }
-        levelEntries[level - 1].refreshBookFromMessage(fieldSet);
+        levelEntries[level - 1].refreshBookFromMessage(fieldSet, triggerTime, transactTime1);
     }
 
     @Override
-    protected void modifyEntry(OrderBookPriceEntry[] levelEntries, int level, FieldSet fieldSet) {
-        levelEntries[level - 1].refreshBookFromMessage(fieldSet);
+    protected void modifyEntry(OrderBookPriceEntry[] levelEntries, int level, FieldSet fieldSet, long triggerTime, long transactTime) {
+        this.triggerTime = triggerTime;
+        this.transactTime = transactTime;
+        levelEntries[level - 1].refreshBookFromMessage(fieldSet, triggerTime, transactTime);
     }
 
     @Override
@@ -145,5 +155,14 @@ public class MultipleDepthBookHandler extends AbstractOrderBookHandler<OrderBook
         if (subscribedToEntireBook && refreshedBook) channelContext.notifyBookRefresh(this);
         refreshedTop = false;
         refreshedBook = false;
+    }
+
+    @Override
+    public long getTriggerTime() {
+        return triggerTime;
+    }
+
+    public long getTransactTime() {
+        return transactTime;
     }
 }

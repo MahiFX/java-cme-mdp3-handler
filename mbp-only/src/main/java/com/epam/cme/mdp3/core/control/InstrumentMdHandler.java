@@ -125,17 +125,19 @@ public class InstrumentMdHandler {
         MdpGroup mdpGroupObj = feedContext.getMdpGroupObj();
 
         fullRefreshMsg.getGroup(268, mdpGroupObj);
+        long msgTransactTime = fullRefreshMsg.getUInt64(60);
+        long systemTransactTime = System.currentTimeMillis() * 1_000_000;
         while (mdpGroupObj.hashNext()) {
             mdpGroupObj.next();
             final MDEntryType mdEntryType = MDEntryType.fromFIX(mdpGroupObj.getChar(269));
             switch (mdEntryType) {
                 case Bid:
                     if (this.multipleDepthBookHandler != null)
-                        this.multipleDepthBookHandler.handleSnapshotBidEntry(mdpGroupObj);
+                        this.multipleDepthBookHandler.handleSnapshotBidEntry(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case Offer:
                     if (this.multipleDepthBookHandler != null)
-                        this.multipleDepthBookHandler.handleSnapshotOfferEntry(mdpGroupObj);
+                        this.multipleDepthBookHandler.handleSnapshotOfferEntry(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case Trade:
                     if (this.tradeHandler != null) this.tradeHandler.updateTradeSummary(mdpGroupObj);
@@ -161,10 +163,12 @@ public class InstrumentMdHandler {
                     if (this.statisticsHandler != null) this.statisticsHandler.updateOpenInterest(mdpGroupObj);
                     break;
                 case ImpliedBid:
-                    if (this.impliedBookHandler != null) this.impliedBookHandler.handleSnapshotBidEntry(mdpGroupObj);
+                    if (this.impliedBookHandler != null)
+                        this.impliedBookHandler.handleSnapshotBidEntry(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case ImpliedOffer:
-                    if (this.impliedBookHandler != null) this.impliedBookHandler.handleSnapshotOfferEntry(mdpGroupObj);
+                    if (this.impliedBookHandler != null)
+                        this.impliedBookHandler.handleSnapshotOfferEntry(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case SessionHighBid:
                     if (this.statisticsHandler != null) this.statisticsHandler.updateSessionHighBid(mdpGroupObj);
@@ -191,18 +195,18 @@ public class InstrumentMdHandler {
         if (this.impliedBookHandler != null) this.channelContext.notifyImpliedBookFullRefresh(this.impliedBookHandler);
     }
 
-    public void handleIncrementalRefreshEntry(final FieldSet incrementEntry) {
+    public void handleIncrementalRefreshEntry(final FieldSet incrementEntry, long triggerTime, long transactTime) {
         if (!this.enabled) return;
 
         final MDEntryType mdEntryType = MDEntryType.fromFIX(incrementEntry.getChar(269));
         switch (mdEntryType) {
             case Bid:
                 if (this.multipleDepthBookHandler != null)
-                    this.multipleDepthBookHandler.handleIncrementBidEntry(incrementEntry);
+                    this.multipleDepthBookHandler.handleIncrementBidEntry(incrementEntry, triggerTime, transactTime);
                 break;
             case Offer:
                 if (this.multipleDepthBookHandler != null)
-                    this.multipleDepthBookHandler.handleIncrementOfferEntry(incrementEntry);
+                    this.multipleDepthBookHandler.handleIncrementOfferEntry(incrementEntry, triggerTime, transactTime);
                 break;
             case Trade:
                 if (this.tradeHandler != null) this.tradeHandler.updateTradeSummary(incrementEntry);
@@ -227,10 +231,12 @@ public class InstrumentMdHandler {
                 if (this.statisticsHandler != null) this.statisticsHandler.updateOpenInterest(incrementEntry);
                 break;
             case ImpliedBid:
-                if (this.impliedBookHandler != null) this.impliedBookHandler.handleIncrementBidEntry(incrementEntry);
+                if (this.impliedBookHandler != null)
+                    this.impliedBookHandler.handleIncrementBidEntry(incrementEntry, triggerTime, transactTime);
                 break;
             case ImpliedOffer:
-                if (this.impliedBookHandler != null) this.impliedBookHandler.handleIncrementOfferEntry(incrementEntry);
+                if (this.impliedBookHandler != null)
+                    this.impliedBookHandler.handleIncrementOfferEntry(incrementEntry, triggerTime, transactTime);
                 break;
             case EmptyBook:
                 clearBooks();

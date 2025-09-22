@@ -14,7 +14,7 @@ package com.epam.cme.mdp3.control;
 
 import com.epam.cme.mdp3.MdpPacket;
 import com.epam.cme.mdp3.sbe.message.SbeConstants;
-import net.openhft.chronicle.bytes.NativeBytesStore;
+import net.openhft.chronicle.bytes.internal.NativeBytesStore;
 
 import static com.epam.cme.mdp3.sbe.message.SbeConstants.MESSAGE_SEQ_NUM_OFFSET;
 

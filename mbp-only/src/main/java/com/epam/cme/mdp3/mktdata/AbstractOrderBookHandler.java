@@ -39,7 +39,7 @@ abstract class AbstractOrderBookHandler<T> extends AbstractMktDataHandler {
         this.refreshedTop = false;
     }
 
-    protected abstract void modifyEntry(final T[] levelEntries, final int level, final FieldSet fieldSet);
+    protected abstract void modifyEntry(final T[] levelEntries, final int level, final FieldSet fieldSet, long transactTime, long transactTime1);
 
     protected abstract void deleteEntry(final T[] levelEntries, final int level);
 
@@ -47,18 +47,18 @@ abstract class AbstractOrderBookHandler<T> extends AbstractMktDataHandler {
 
     protected abstract void deleteThru(final T[] levelEntries);
 
-    protected abstract void insertEntry(final T[] levelEntries, final int level, final FieldSet fieldSet);
+    protected abstract void insertEntry(final T[] levelEntries, final int level, final FieldSet fieldSet, long triggerTime, long transactTime);
 
 
     protected void handleIncrementRefresh(final T[] levelEntries, final int level,
-                                          final MDUpdateAction updateAction, final FieldSet incrementEntry) {
+                                          final MDUpdateAction updateAction, final FieldSet incrementEntry, long triggerTime, long transactTime) {
         switch (updateAction) {
             case Overlay:
             case Change:
-                modifyEntry(levelEntries, level, incrementEntry);
+                modifyEntry(levelEntries, level, incrementEntry, triggerTime, transactTime);
                 break;
             case New:
-                insertEntry(levelEntries, level, incrementEntry);
+                insertEntry(levelEntries, level, incrementEntry, triggerTime, transactTime);
                 break;
             case Delete:
                 deleteEntry(levelEntries, level);

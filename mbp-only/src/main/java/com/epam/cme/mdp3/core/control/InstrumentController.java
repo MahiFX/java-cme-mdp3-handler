@@ -18,11 +18,11 @@ import com.epam.cme.mdp3.MdpGroupEntry;
 import com.epam.cme.mdp3.MdpMessage;
 import com.epam.cme.mdp3.core.channel.ChannelContext;
 import com.epam.cme.mdp3.core.channel.MdpFeedContext;
-import com.epam.cme.mdp3.sbe.message.SbeGroupEntry;
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
-
 import com.epam.cme.mdp3.core.control.IncrementalRefreshQueue.IncrementalRefreshQueueEntry;
+import com.epam.cme.mdp3.sbe.message.SbeGroupEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static com.epam.cme.mdp3.mktdata.MdConstants.RPT_SEQ_NUM;
 
 public class InstrumentController {
@@ -118,12 +118,13 @@ public class InstrumentController {
         final long expectedRptSeqNum = this.processedRptSeqNum + 1;
         final short matchEventIndicator = incrQueueEntry.matchEventIndicator;
         final MdpGroupEntry incrGroupEntry = incrQueueEntry.groupEntry;
+        long triggerTime = incrQueueEntry.triggerTime;
 
         if (rptSeqNum == expectedRptSeqNum) {
             this.processedRptSeqNum = rptSeqNum;
             channelContext.notifyIncrementalRefreshListeners(
                     matchEventIndicator, this.securityId, this.secDesc, incrQueueEntry.incrPcktSeqNum, incrGroupEntry);
-            mdHandler.handleIncrementalRefreshEntry(incrQueueEntry.groupEntry);
+            mdHandler.handleIncrementalRefreshEntry(incrQueueEntry.groupEntry, triggerTime, incrQueueEntry.transactTime);
         } else if (rptSeqNum > (expectedRptSeqNum + gapThreshold)) {
             // next messages in queue are also with gap, so we have to resync again
             switchState(InstrumentState.SYNC, InstrumentState.OUTOFSYNC);
@@ -133,7 +134,7 @@ public class InstrumentController {
     }
 
     private void handleIncrementalQueue(final MdpFeedContext feedContext, final long prcdSeqNum) {
-        if(logger.isDebugEnabled()) {
+        if (logger.isDebugEnabled()) {
             logger.debug("Feed {}:{} | handleIncrementalQueue: after {}",
                     feedContext.getFeedType(), feedContext.getFeed(), prcdSeqNum);
         }
@@ -141,7 +142,7 @@ public class InstrumentController {
 
         for (long i = prcdSeqNum + 1; i <= queue.getLastRptSeqNum(); i++) {
             if (queue.poll(i, this.incrQueueEntry) > 0) {
-                if(logger.isTraceEnabled()) {
+                if (logger.isTraceEnabled()) {
                     logger.trace("Feed {}:{} | Process incremental entry #{} from queue",
                             feedContext.getFeedType(), feedContext.getFeed(), i);
                 }
@@ -168,16 +169,19 @@ public class InstrumentController {
         this.channelContext.notifyInstrumentStateListeners(this.securityId, this.secDesc, prevState, newState);
     }
 
-    private void handleIncrementalRefreshEntry(final long msgSeqNum, final short matchEventIndicator, final FieldSet incrRefreshEntry) {
+    private void handleIncrementalRefreshEntry(final long msgSeqNum, final short matchEventIndicator, final FieldSet incrRefreshEntry, long triggerTime, long transactTime) {
         channelContext.notifyIncrementalRefreshListeners(matchEventIndicator, this.securityId, this.secDesc, msgSeqNum, incrRefreshEntry);
-        mdHandler.handleIncrementalRefreshEntry(incrRefreshEntry);
+        mdHandler.handleIncrementalRefreshEntry(incrRefreshEntry, triggerTime, transactTime);
     }
 
     private void pushIncrementalRefreshEntryInQueue(final long msgSeqNum, final short matchEventIndicator,
-                                            final long rptSeqNum, final MdpGroupEntry incrRefreshEntry) {
+                                                    final long rptSeqNum, final MdpGroupEntry incrRefreshEntry,
+                                                    long msgTransactTime, long systemTransactTime) {
         this.incrQueueEntry.incrPcktSeqNum = msgSeqNum;
         this.incrQueueEntry.matchEventIndicator = matchEventIndicator;
         this.incrQueueEntry.groupEntry = incrRefreshEntry;
+        this.incrQueueEntry.triggerTime = msgTransactTime;
+        this.incrQueueEntry.transactTime = systemTransactTime;
         this.incrRefreshQueue.push(rptSeqNum, this.incrQueueEntry);
     }
 
@@ -217,7 +221,7 @@ public class InstrumentController {
                             snptSeqNum, this.incrRefreshQueue.getLastRptSeqNum());*/
                 }
             } else if (currentState == InstrumentState.SYNC && snptSeqNum > this.processedRptSeqNum) {
-                if(logger.isTraceEnabled()) {
+                if (logger.isTraceEnabled()) {
                     logger.trace("Feed {}:{} | #{} | Instrument: '{}'. State: {}. Snapshot with high sequence comes faster then Increments. Fast forward from {} to {}",
                             feedContext.getFeedType(), feedContext.getFeed(), snptSeqNum, this.getSecurityId(), this.state, processedRptSeqNum, snptSeqNum + 1);
                 }
@@ -229,11 +233,11 @@ public class InstrumentController {
         }
     }
 
-    void onIncrementalRefresh(final MdpFeedContext feedContext, final long msgSeqNum, final short matchEventIndicator, final MdpGroupEntry incrRefreshEntry) {
+    void onIncrementalRefresh(final MdpFeedContext feedContext, final long msgSeqNum, final short matchEventIndicator, final MdpGroupEntry incrRefreshEntry, long triggerTime, long transactTime) {
         final InstrumentState currentState = this.state;
         if (incrRefreshEntry.hasField(RPT_SEQ_NUM)) {
             final long rptSeqNum = incrRefreshEntry.getUInt32(RPT_SEQ_NUM);
-            if(logger.isDebugEnabled()) {
+            if (logger.isDebugEnabled()) {
                 logger.debug("Feed {}:{} | #{} | RPT#{} | SecurityId={}, state={}, prcd={}",
                         feedContext.getFeedType(), feedContext.getFeed(), msgSeqNum, rptSeqNum, this.getSecurityId(), this.state, this.processedRptSeqNum);
             }
@@ -241,10 +245,10 @@ public class InstrumentController {
             if (currentState == InstrumentState.SYNC) {
                 if (rptSeqNum == expectedRptSeqNum) {
                     this.processedRptSeqNum = rptSeqNum;
-                    handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry);
+                    handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry, triggerTime, transactTime);
                     handleIncrementalQueue(feedContext, rptSeqNum);
                 } else if (rptSeqNum > expectedRptSeqNum) {
-                    pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry);
+                    pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry, triggerTime, transactTime);
                     if (rptSeqNum > (expectedRptSeqNum + gapThreshold)) {
                         /*logger.info("Feed {}{} | SecurityId={}-({}), Processed rptSeqNum:{}. Received:{}",
                                 feedContext.getFeedType(), feedContext.getFeed(), this.getSecurityId(), this.secDesc,
@@ -255,24 +259,24 @@ public class InstrumentController {
                 }
             } else if (currentState == InstrumentState.OUTOFSYNC) {
                 if (rptSeqNum == expectedRptSeqNum) {
-                    if(logger.isTraceEnabled()) {
+                    if (logger.isTraceEnabled()) {
                         logger.trace("Feed {}{} | #{} | Instrument: '{}'. State: {}. Got expected increment to restore: #{}",
                                 feedContext.getFeedType(), feedContext.getFeed(), msgSeqNum, this.getSecurityId(), this.state, expectedRptSeqNum);
                     }
                     this.processedRptSeqNum = rptSeqNum;
                     switchState(currentState, InstrumentState.SYNC);
-                    handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry);
+                    handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry, triggerTime, transactTime);
                     handleIncrementalQueue(feedContext, rptSeqNum);
                 } else if (rptSeqNum > expectedRptSeqNum) {
-                    pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry);
+                    pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry, triggerTime, transactTime);
                 }
             } else if (currentState == InstrumentState.INITIAL) {
                 if (processedRptSeqNum == 0 && rptSeqNum == 1) {
                     this.processedRptSeqNum = rptSeqNum;
                     switchState(currentState, InstrumentState.SYNC);
-                    handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry);
+                    handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry, triggerTime, transactTime);
                 } else {
-                    pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry);
+                    pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry, triggerTime, transactTime);
                 }
             }
         }

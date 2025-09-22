@@ -17,5 +17,5 @@ import com.epam.cme.mdp3.FieldSet;
 public interface OrderBookPriceLevel extends ImpliedBookPriceLevel {
     int getOrderCount();
 
-    void refreshBookFromMessage(final FieldSet fieldSet);
+    void refreshBookFromMessage(final FieldSet fieldSet, long triggerTime, long transactTime);
 }

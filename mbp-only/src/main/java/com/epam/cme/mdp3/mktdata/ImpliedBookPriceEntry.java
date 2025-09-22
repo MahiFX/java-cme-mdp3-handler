@@ -17,6 +17,8 @@ import com.epam.cme.mdp3.FieldSet;
 public class ImpliedBookPriceEntry implements ImpliedBookPriceLevel {
     protected int qty;
     protected final Price price = new Price();
+    protected long triggerTime;
+    private long transactTime;
 
     @Override
     public int getQuantity() {
@@ -28,6 +30,15 @@ public class ImpliedBookPriceEntry implements ImpliedBookPriceLevel {
         return price;
     }
 
+    @Override
+    public long getTriggerTime() {
+        return triggerTime;
+    }
+
+    public long getTransactTime() {
+        return transactTime;
+    }
+
     public void clear() {
         qty = 0;
         price.setNull();
@@ -36,10 +47,19 @@ public class ImpliedBookPriceEntry implements ImpliedBookPriceLevel {
     public void refreshFromAnotherEntry(final ImpliedBookPriceEntry bookEntry) {
         this.qty = bookEntry.qty;
         this.price.setMantissa(bookEntry.getPrice().getMantissa());
+        this.triggerTime = bookEntry.triggerTime;
+        this.transactTime = bookEntry.transactTime;
     }
 
-    public void refreshFromMessage(final FieldSet fieldSet) {
-        this.qty = fieldSet.getInt32(271);
-        this.price.setMantissa(fieldSet.getInt64(270));
+    public void refreshFromMessage(final FieldSet fieldSet, long triggerTime, long transactTime) {
+        int newQty = fieldSet.getInt32(271);
+        long newPrice = fieldSet.getInt64(270);
+        boolean changed = newQty != qty || newPrice != price.getMantissa();
+        if (changed) {
+            this.qty = newQty;
+            this.price.setMantissa(newPrice);
+            this.triggerTime = triggerTime;
+            this.transactTime = transactTime;
+        }
     }
 }

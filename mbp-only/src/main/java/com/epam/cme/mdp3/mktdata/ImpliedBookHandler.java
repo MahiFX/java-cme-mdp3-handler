@@ -56,36 +56,36 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
         this.subscribedToTop = MdEventFlags.hasImpliedTop(this.subscriptionFlags);
     }
 
-    public void handleSnapshotBidEntry(final MdpGroup snptGroup) {
+    public void handleSnapshotBidEntry(final MdpGroup snptGroup, long triggerTime, long transactTime) {
         final byte level = snptGroup.getInt8(1023);
         if (level > 1 && !subscribedToEntireBook) return;
         final ImpliedBookPriceEntry bookPriceLevel = (ImpliedBookPriceEntry) getBid(level);
-        bookPriceLevel.refreshFromMessage(snptGroup);
+        bookPriceLevel.refreshFromMessage(snptGroup, triggerTime, transactTime);
     }
 
-    public void handleSnapshotOfferEntry(final MdpGroup snptGroup) {
+    public void handleSnapshotOfferEntry(final MdpGroup snptGroup, long triggerTime, long transactTime) {
         final byte level = snptGroup.getInt8(1023);
         if (level > 1 && !subscribedToEntireBook) return;
         final ImpliedBookPriceEntry bookPriceLevel = (ImpliedBookPriceEntry) getOffer(level);
-        bookPriceLevel.refreshFromMessage(snptGroup);
+        bookPriceLevel.refreshFromMessage(snptGroup, triggerTime, transactTime);
     }
 
-    public void handleIncrementBidEntry(final FieldSet incrementEntry) {
+    public void handleIncrementBidEntry(final FieldSet incrementEntry, long triggerTime, long transactTime) {
         final byte level = (byte) incrementEntry.getUInt8(1023);
         if (level > 1 && !subscribedToEntireBook) return;
         this.refreshedBook = true;
         if (level == 1) this.refreshedTop = true;
         final MDUpdateAction updateAction = MDUpdateAction.fromFIX(incrementEntry.getUInt8(279));
-        handleIncrementRefresh(bidLevels, level, updateAction, incrementEntry);
+        handleIncrementRefresh(bidLevels, level, updateAction, incrementEntry, triggerTime, transactTime);
     }
 
-    public void handleIncrementOfferEntry(final FieldSet incrementEntry) {
+    public void handleIncrementOfferEntry(final FieldSet incrementEntry, long triggerTime, long transactTime) {
         final byte level = (byte) incrementEntry.getUInt8(1023);
         if (level > 1 && !subscribedToEntireBook) return;
         this.refreshedBook = true;
         if (level == 1) this.refreshedTop = true;
         final MDUpdateAction updateAction = MDUpdateAction.fromFIX(incrementEntry.getUInt8(279));
-        handleIncrementRefresh(offerLevels, level, updateAction, incrementEntry);
+        handleIncrementRefresh(offerLevels, level, updateAction, incrementEntry, triggerTime, transactTime);
     }
 
     protected void deleteEntry(final ImpliedBookPriceEntry[] levelEntries, final int level) {
@@ -112,16 +112,16 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
         }
     }
 
-    protected void insertEntry(final ImpliedBookPriceEntry[] levelEntries, final int level, final FieldSet fieldSet) {
+    protected void insertEntry(final ImpliedBookPriceEntry[] levelEntries, final int level, final FieldSet fieldSet, long triggerTime, long transactTime) {
         for (int i = ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH - 1; i > level - 1; i--) {
             levelEntries[i].refreshFromAnotherEntry(levelEntries[i - 1]);
         }
-        levelEntries[level - 1].refreshFromMessage(fieldSet);
+        levelEntries[level - 1].refreshFromMessage(fieldSet, triggerTime, transactTime);
     }
 
     @Override
-    protected void modifyEntry(ImpliedBookPriceEntry[] levelEntries, int level, FieldSet fieldSet) {
-        levelEntries[level - 1].refreshFromMessage(fieldSet);
+    protected void modifyEntry(ImpliedBookPriceEntry[] levelEntries, int level, FieldSet fieldSet, long triggerTime, long transactTime) {
+        levelEntries[level - 1].refreshFromMessage(fieldSet, triggerTime, transactTime);
     }
 
     public boolean isSubscribedToTop() {

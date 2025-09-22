@@ -23,8 +23,8 @@ import com.epam.cme.mdp3.sbe.message.SbeConstants;
 import com.epam.cme.mdp3.sbe.message.meta.MdpMessageType;
 import com.epam.cme.mdp3.sbe.message.meta.SbePrimitiveType;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypes;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -119,14 +119,14 @@ public class ChannelController {
 
     private void updateSecurityFromIncrementalRefresh(final MdpFeedContext feedContext, final long msgSeqNum,
                                                       final short matchEventIndicator, final MdpGroup incrGroup,
-                                                      final InstrumentController instController, final int secId) {
+                                                      final InstrumentController instController, final int secId, long triggerTime, long transactTime) {
         if (instController != null) {
             if (this.channelContext.hasMdListeners()) {
                 this.eventController.logSecurity(secId);
             }
             final MdpGroupEntry entry = feedContext.getMdpGroupEntryObj();
             incrGroup.getEntry(entry);
-            instController.onIncrementalRefresh(feedContext, msgSeqNum, matchEventIndicator, entry);
+            instController.onIncrementalRefresh(feedContext, msgSeqNum, matchEventIndicator, entry, triggerTime, transactTime);
         }
     }
 
@@ -134,6 +134,8 @@ public class ChannelController {
         final MdpGroup incrGroup = feedContext.getMdpGroupObj();
         InstrumentController instController = null;
         mdpMessage.getGroup(MdConstants.NO_MD_ENTRIES, incrGroup);
+        long msgTransactTime = mdpMessage.getUInt64(60);
+        long systemTransactTime = System.currentTimeMillis() * 1_000_000;
         while (incrGroup.hashNext()) {
             incrGroup.next();
             final MDEntryType mdEntryType = MDEntryType.fromFIX(incrGroup.getChar(INCR_RFRSH_MD_ENTRY_TYPE));
@@ -144,7 +146,9 @@ public class ChannelController {
                 if (instController == null || instController.getSecurityId() != secId) {
                     instController = channelContext.findInstrumentController(secId, null);
                 }
-                updateSecurityFromIncrementalRefresh(feedContext, msgSeqNum, matchEventIndicator, incrGroup, instController, secId);
+
+
+                updateSecurityFromIncrementalRefresh(feedContext, msgSeqNum, matchEventIndicator, incrGroup, instController, secId, msgTransactTime, systemTransactTime);
             }
         }
     }

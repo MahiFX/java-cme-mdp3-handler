@@ -34,8 +34,8 @@ public class OrderBookPriceEntry extends ImpliedBookPriceEntry implements OrderB
     }
 
     @Override
-    public void refreshBookFromMessage(final FieldSet fieldSet) {
-        super.refreshFromMessage(fieldSet);
+    public void refreshBookFromMessage(final FieldSet fieldSet, long triggerTime, long transactTime) {
+        super.refreshFromMessage(fieldSet, triggerTime, transactTime);
         this.orderCount = fieldSet.getInt32(346);
     }
 }

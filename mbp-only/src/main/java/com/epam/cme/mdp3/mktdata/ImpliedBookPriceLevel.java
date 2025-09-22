@@ -16,4 +16,9 @@ public interface ImpliedBookPriceLevel {
     int getQuantity();
 
     Price getPrice();
+
+    long getTriggerTime();
+
+    long getTransactTime();
+
 }

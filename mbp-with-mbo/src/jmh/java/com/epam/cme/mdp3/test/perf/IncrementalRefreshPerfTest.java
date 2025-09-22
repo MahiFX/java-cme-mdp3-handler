@@ -44,14 +44,15 @@ public class IncrementalRefreshPerfTest {
                     IncrementalRefreshPerfTest.class.getResource("/templates_FixBinary.xml").toURI())
                     .usingListener(new VoidChannelListener() {
                         @Override
-                        public void onIncrementalMBORefresh(final String channelId, final short matchEventIndicator, final int securityId,
-                                                            final String secDesc, final long msgSeqNum, final FieldSet orderIDEntry, final FieldSet mdEntry){
-                            printMBOEntity(channelId, matchEventIndicator, securityId, secDesc, msgSeqNum, orderIDEntry, mdEntry, print);
+                        public void onIncrementalMBORefresh(MdpMessage mdpMessage, String channelId, int securityId, String secDesc, long msgSeqNum, FieldSet orderEntry, FieldSet mdEntry){
+                            short matchEventIndicator = mdEntry.getUInt8(5799);
+
+                            printMBOEntity(channelId, matchEventIndicator, securityId, secDesc, msgSeqNum, orderEntry, mdEntry, print);
                         }
 
                         @Override
-                        public void onIncrementalMBPRefresh(final String channelId, final short matchEventIndicator, final int securityId,
-                                                            final String secDesc, final long msgSeqNum, final FieldSet mdEntry){
+                        public void onIncrementalMBPRefresh(MdpMessage mdpMessage, String channelId, int securityId, String secDesc, long msgSeqNum, FieldSet mdEntry){
+                            short matchEventIndicator = mdEntry.getUInt8(5799);
                             printMBPEntity(channelId, matchEventIndicator, securityId, secDesc, msgSeqNum, mdEntry, print);
                         }
 
