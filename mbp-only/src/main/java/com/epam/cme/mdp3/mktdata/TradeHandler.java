@@ -14,25 +14,58 @@ package com.epam.cme.mdp3.mktdata;
 
 import com.epam.cme.mdp3.FieldSet;
 import com.epam.cme.mdp3.core.channel.ChannelContext;
+import com.epam.cme.mdp3.sbe.message.SbeDouble;
 
 // implementation should be complete
 public class TradeHandler extends AbstractMktDataHandler {
+
+    public static final int NEW_ACTION = 0;
+
+    private final TradeSummaryImpl summary = new TradeSummaryImpl();
+
     public TradeHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags) {
         super(channelContext, securityId, subscriptionFlags);
     }
 
-    public void updateTradeSummary(final FieldSet tradeEntry) {
-        throw new UnsupportedOperationException();
+    public void updateTradeSummary(final FieldSet tradeEntry, long triggerTime, long transactTime) {
+
+        byte action = tradeEntry.getInt8(279);
+        if (action == NEW_ACTION) {
+            SbeDouble price = SbeDouble.instance();
+            tradeEntry.getDouble(270, price);
+            if (price.isNull()) {
+                return;
+            }
+            long qty;
+            int schemaId = tradeEntry.getSchemaId();
+            if (schemaId == 65) {
+                // long quantities
+                qty = tradeEntry.getUInt64(271);
+            } else {
+                qty = tradeEntry.getInt32(271);
+            }
+            int securityId = tradeEntry.getInt32(48);
+            int tradeId = tradeEntry.getInt32(37711);
+            AggressorSide side = AggressorSide.getByCode(tradeEntry.getUInt8(5797));
+
+            summary.update(securityId, tradeId, price.asDouble(), qty, side, triggerTime, transactTime);
+
+            channelContext.notifyTradeListeners(securityId, summary);
+        }
     }
 
 
     public void updateElectronicVolume(final FieldSet incrementEntry) {
-        throw new UnsupportedOperationException();
+
     }
 
 
     @Override
     public void clear() {
-        throw new UnsupportedOperationException();
+        summary.reset();
+    }
+
+    public void commitEvent() {
+        // TODO batch trades
     }
 }

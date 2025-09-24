@@ -17,8 +17,8 @@ import com.epam.cme.mdp3.core.cfg.ChannelCfg;
 import com.epam.cme.mdp3.core.control.ChannelController;
 import com.epam.cme.mdp3.core.control.InstrumentController;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypes;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,6 +65,7 @@ public class MdpChannelImpl implements MdpChannel {
 
     private final List<ChannelListener> listeners = new ArrayList<>();
     private final List<MarketDataListener> mdListeners = new ArrayList<>();
+    private final List<TradeListener> tradeListeners = new ArrayList<>();
     private boolean hasMdListener = false;
 
     private final ChannelContext channelContext;
@@ -264,11 +265,26 @@ public class MdpChannelImpl implements MdpChannel {
         }
     }
 
+
     @Override
     public void removeMarketDataListener(final MarketDataListener mdListener) {
         synchronized (mdListeners) {
             mdListeners.remove(mdListener);
             setMdEnabledFlag();
+        }
+    }
+
+    @Override
+    public void registerTradeListener(final TradeListener tradeListener) {
+        synchronized (tradeListeners) {
+            tradeListeners.add(tradeListener);
+        }
+    }
+
+    @Override
+    public void removeTradeListener(final TradeListener tradeListener) {
+        synchronized (tradeListeners) {
+            tradeListeners.remove(tradeListener);
         }
     }
 
@@ -288,6 +304,11 @@ public class MdpChannelImpl implements MdpChannel {
     @Override
     public List<MarketDataListener> getMdListeners() {
         return mdListeners;
+    }
+
+
+    public List<TradeListener> getTradeListeners() {
+        return tradeListeners;
     }
 
     @Override
@@ -575,6 +596,7 @@ public class MdpChannelImpl implements MdpChannel {
     public void setRcvBufSize(int rcvBufSize) {
         this.rcvBufSize = rcvBufSize;
     }
+
 
     private final class MdpFeelListenerImpl implements MdpFeedListener {
         @Override

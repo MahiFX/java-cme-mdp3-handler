@@ -17,6 +17,7 @@ import com.epam.cme.mdp3.Feed;
 import com.epam.cme.mdp3.FeedType;
 import com.epam.cme.mdp3.MdpChannel;
 import com.epam.cme.mdp3.control.GapChannelController;
+import com.epam.cme.mdp3.core.cfg.ChannelCfg;
 import com.epam.cme.mdp3.core.cfg.Configuration;
 import com.epam.cme.mdp3.core.channel.MdpFeedWorker;
 import com.epam.cme.mdp3.core.channel.tcp.MdpTCPMessageRequester;
@@ -150,7 +151,11 @@ public class MdpChannelBuilder {
         try {
             final Configuration cfg = new Configuration(this.cfgURI);
             final MdpMessageTypes mdpMessageTypes = new MdpMessageTypes(this.schemaURI);
-            MdpChannel mdpChannel = new LowLevelMdpChannel(scheduler, cfg.getChannel(this.channelId), mdpMessageTypes,
+            ChannelCfg cfgChannel = cfg.getChannel(this.channelId);
+            if (cfgChannel == null) {
+                throw new IllegalStateException("Failed to find channel '" + this.channelId + "' in configuration " + this.cfgURI);
+            }
+            MdpChannel mdpChannel = new LowLevelMdpChannel(scheduler, cfgChannel, mdpMessageTypes,
                      incrQueueSize, rcvBufSize, gapThreshold, maxNumberOfTCPAttempts, tcpUsername, tcpPassword, feedANetworkInterfaces, feedBNetworkInterfaces, 
                      mboEnabled, incrementMessageTemplateIds, snapshotMessageTemplateIds, snptFeedToUse, outputStatisticsEveryXseconds);
             if (channelListener != null) mdpChannel.registerListener(channelListener);

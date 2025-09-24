@@ -21,8 +21,8 @@ import com.epam.cme.mdp3.mktdata.enums.MDEntryType;
 import com.epam.cme.mdp3.mktdata.enums.MDUpdateAction;
 import com.epam.cme.mdp3.sbe.message.SbeConstants;
 import com.epam.cme.mdp3.sbe.message.SbeDouble;
-import org.openjdk.jmh.annotations.*;
 import com.epam.cme.mdp3.test.ModelUtils;
+import org.openjdk.jmh.annotations.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -33,7 +33,7 @@ import static com.epam.cme.mdp3.MdConstants.*;
 
 public class IncrementalRefreshPerfTest {
     private static MdpChannelBuilder mdpHandlerBuilder;
-    private static final int TEST_CHANNEL_ID = 310;
+    private static final int TEST_CHANNEL_ID = 945;
     private static SbeDouble doubleVal = SbeDouble.instance();
     private volatile static boolean print = false;
 

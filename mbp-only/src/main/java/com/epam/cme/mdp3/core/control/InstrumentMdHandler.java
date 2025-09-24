@@ -140,7 +140,8 @@ public class InstrumentMdHandler {
                         this.multipleDepthBookHandler.handleSnapshotOfferEntry(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case Trade:
-                    if (this.tradeHandler != null) this.tradeHandler.updateTradeSummary(mdpGroupObj);
+                    if (this.tradeHandler != null)
+                        this.tradeHandler.updateTradeSummary(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case OpeningPrice:
                     if (this.statisticsHandler != null) this.statisticsHandler.updateOpeningPrice(mdpGroupObj);
@@ -209,7 +210,8 @@ public class InstrumentMdHandler {
                     this.multipleDepthBookHandler.handleIncrementOfferEntry(incrementEntry, triggerTime, transactTime);
                 break;
             case Trade:
-                if (this.tradeHandler != null) this.tradeHandler.updateTradeSummary(incrementEntry);
+                if (this.tradeHandler != null)
+                    this.tradeHandler.updateTradeSummary(incrementEntry, triggerTime, transactTime);
                 break;
             case OpeningPrice:
                 if (this.statisticsHandler != null) this.statisticsHandler.updateOpeningPrice(incrementEntry);
@@ -272,5 +274,6 @@ public class InstrumentMdHandler {
 
         if (this.multipleDepthBookHandler != null) this.multipleDepthBookHandler.commitEvent();
         if (this.impliedBookHandler != null) this.impliedBookHandler.commitEvent();
+        if (this.tradeHandler != null) this.tradeHandler.commitEvent();
     }
 }

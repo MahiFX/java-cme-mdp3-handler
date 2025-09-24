@@ -118,6 +118,10 @@ public interface MdpChannel {
      */
     void removeMarketDataListener(MarketDataListener mdListener);
 
+    void registerTradeListener(TradeListener tradeListener);
+
+    void removeTradeListener(TradeListener tradeListener);
+
     /**
      * Gets all registered Channel Listeners.
      *

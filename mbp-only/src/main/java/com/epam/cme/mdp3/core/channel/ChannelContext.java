@@ -18,6 +18,7 @@ import com.epam.cme.mdp3.core.control.InstrumentState;
 import com.epam.cme.mdp3.mktdata.ImpliedBook;
 import com.epam.cme.mdp3.mktdata.MdConstants;
 import com.epam.cme.mdp3.mktdata.OrderBook;
+import com.epam.cme.mdp3.mktdata.TradeSummary;
 import com.epam.cme.mdp3.mktdata.enums.*;
 import com.epam.cme.mdp3.sbe.message.SbeString;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypes;
@@ -118,6 +119,14 @@ public class ChannelContext {
         final List<MarketDataListener> mdListeners = this.channel.getMdListeners();
         for (int i = 0; i < mdListeners.size(); i++) {
             mdListeners.get(i).onOrderBookRefresh(this.channel.getId(), orderBook.getSecurityId(), orderBook);
+        }
+    }
+
+
+    public void notifyTradeListeners(int securityId, TradeSummary summary) {
+        final List<TradeListener> mdListeners = this.channel.getTradeListeners();
+        for (int i = 0; i < mdListeners.size(); i++) {
+            mdListeners.get(i).onTradeSummary(this.channel.getId(), securityId, summary);
         }
     }
 
@@ -254,4 +263,5 @@ public class ChannelContext {
     public int getIncrQueueSize() {
         return this.channel.getIncrQueueSize();
     }
+
 }
