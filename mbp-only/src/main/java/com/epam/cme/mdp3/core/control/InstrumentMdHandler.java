@@ -141,7 +141,7 @@ public class InstrumentMdHandler {
                     break;
                 case Trade:
                     if (this.tradeHandler != null)
-                        this.tradeHandler.updateTradeSummary(mdpGroupObj, msgTransactTime, systemTransactTime);
+                        this.tradeHandler.updateTradeSummarySnapshot(mdpGroupObj, msgTransactTime, systemTransactTime);
                     break;
                 case OpeningPrice:
                     if (this.statisticsHandler != null) this.statisticsHandler.updateOpeningPrice(mdpGroupObj);
@@ -211,7 +211,7 @@ public class InstrumentMdHandler {
                 break;
             case Trade:
                 if (this.tradeHandler != null)
-                    this.tradeHandler.updateTradeSummary(incrementEntry, triggerTime, transactTime);
+                    this.tradeHandler.updateTradeSummaryIncrement(incrementEntry, triggerTime, transactTime);
                 break;
             case OpeningPrice:
                 if (this.statisticsHandler != null) this.statisticsHandler.updateOpeningPrice(incrementEntry);

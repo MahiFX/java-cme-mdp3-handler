@@ -1882,7 +1882,7 @@
             <field name="MDUpdateAction" id="279" type="MDUpdateAction" description="Market Data update action"
                 offset="33" semanticType="int" />
             <field name="MDEntryType" id="269" type="MDEntryTypeTrade" description="Market Data entry type "
-                semanticType="char" />
+                semanticType="char" />`
         </group>
         <group name="NoOrderIDEntries" id="37705"
             description="Number of OrderID and LastQty entries in Trade Summary message" blockLength="16"

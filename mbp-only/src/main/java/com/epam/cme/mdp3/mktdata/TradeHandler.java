@@ -30,7 +30,7 @@ public class TradeHandler extends AbstractMktDataHandler {
         super(channelContext, securityId, subscriptionFlags);
     }
 
-    public void updateTradeSummary(final FieldSet tradeEntry, long triggerTime, long transactTime) {
+    public void updateTradeSummaryIncrement(FieldSet tradeEntry, long triggerTime, long transactTime) {
 
         try {
             double price = SBEUtil.doubleField(tradeEntry, 270);
@@ -72,5 +72,9 @@ public class TradeHandler extends AbstractMktDataHandler {
 
     public void commitEvent() {
         // TODO batch trades
+    }
+
+    public void updateTradeSummarySnapshot(FieldSet tradeEntry, long triggerTime, long transactTime) {
+
     }
 }
