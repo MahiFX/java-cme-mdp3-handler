@@ -14,12 +14,16 @@ package com.epam.cme.mdp3.mktdata;
 
 import com.epam.cme.mdp3.FieldSet;
 import com.epam.cme.mdp3.core.channel.ChannelContext;
+import com.epam.cme.mdp3.sbe.SBEUtil;
+import com.epam.cme.mdp3.sbe.message.AbstractFieldSet;
 import com.epam.cme.mdp3.sbe.message.SbeDouble;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // implementation should be complete
 public class TradeHandler extends AbstractMktDataHandler {
 
-    public static final int NEW_ACTION = 0;
+    private static final Logger logger = LoggerFactory.getLogger(TradeHandler.class);
 
     private final TradeSummaryImpl summary = new TradeSummaryImpl();
 
@@ -29,8 +33,7 @@ public class TradeHandler extends AbstractMktDataHandler {
 
     public void updateTradeSummary(final FieldSet tradeEntry, long triggerTime, long transactTime) {
 
-        byte action = tradeEntry.getInt8(279);
-        if (action == NEW_ACTION) {
+        try {
             SbeDouble price = SbeDouble.instance();
             tradeEntry.getDouble(270, price);
             if (price.isNull()) {
@@ -51,6 +54,12 @@ public class TradeHandler extends AbstractMktDataHandler {
             summary.update(securityId, tradeId, price.asDouble(), qty, side, triggerTime, transactTime);
 
             channelContext.notifyTradeListeners(securityId, summary);
+        } catch (Throwable ex) {
+            String dump = "";
+            if (tradeEntry instanceof AbstractFieldSet) {
+                dump = SBEUtil.dumpAllFields((AbstractFieldSet) tradeEntry, "TradeSummary");
+            }
+            logger.error("Error while updating trade summary entry: {}", dump, ex);
         }
     }
 
