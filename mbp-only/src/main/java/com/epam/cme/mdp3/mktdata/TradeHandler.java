@@ -16,7 +16,6 @@ import com.epam.cme.mdp3.FieldSet;
 import com.epam.cme.mdp3.core.channel.ChannelContext;
 import com.epam.cme.mdp3.sbe.SBEUtil;
 import com.epam.cme.mdp3.sbe.message.AbstractFieldSet;
-import com.epam.cme.mdp3.sbe.message.SbeDouble;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,24 +33,21 @@ public class TradeHandler extends AbstractMktDataHandler {
     public void updateTradeSummary(final FieldSet tradeEntry, long triggerTime, long transactTime) {
 
         try {
-            SbeDouble price = SbeDouble.instance();
-            tradeEntry.getDouble(270, price);
-            if (price.isNull()) {
-                return;
-            }
+            double price = SBEUtil.doubleField(tradeEntry, 270);
             long qty;
             int schemaId = tradeEntry.getSchemaId();
             if (schemaId == 65) {
                 // long quantities
-                qty = tradeEntry.getUInt64(271);
+                qty = SBEUtil.uInt64Field(tradeEntry, 271);
             } else {
-                qty = tradeEntry.getInt32(271);
+                qty = SBEUtil.int32Field(tradeEntry, 271);
             }
-            int securityId = tradeEntry.getInt32(48);
-            int tradeId = tradeEntry.getInt32(37711);
-            AggressorSide side = AggressorSide.getByCode(tradeEntry.getUInt8(5797));
+            int securityId = SBEUtil.int32Field(tradeEntry, 48);
+            int tradeId = SBEUtil.int32Field(tradeEntry, 37711);
+            short sideVal = SBEUtil.uInt8Field(tradeEntry, 5797);
+            AggressorSide side = AggressorSide.getByCode(sideVal);
 
-            summary.update(securityId, tradeId, price.asDouble(), qty, side, triggerTime, transactTime);
+            summary.update(securityId, tradeId, price, qty, side, triggerTime, transactTime);
 
             channelContext.notifyTradeListeners(securityId, summary);
         } catch (Throwable ex) {

@@ -49,21 +49,23 @@ public class SBEUtil {
             }
 
             SbeGroupType[] sbeGroupTypes = metadata.allGroups();
-            for (SbeGroupType sbeGroupType : sbeGroupTypes) {
-                MetadataContainer groupMeta = sbeGroupType.getMetadataContainer();
-                MdpGroup mdpGroup = SbeGroup.instance();
-                if (fields.getGroup(sbeGroupType.getGroupType().getId(), mdpGroup)) {
-                    sb.append(sbeGroupType.getGroupType().getName()).append("(count ").append(mdpGroup.getNumInGroup()).append(")=[");
-                    SbeFieldType[] groupFields = groupMeta.allFields();
-                    while (mdpGroup.hashNext()) {
-                        mdpGroup.next();
-                        MdpGroupEntry event = SbeGroupEntry.instance();
-                        mdpGroup.getEntry(event);
-                        for (SbeFieldType sbeFieldType : groupFields) {
-                            appendField(event, sbeFieldType, sb);
+            if (sbeGroupTypes != null) {
+                for (SbeGroupType sbeGroupType : sbeGroupTypes) {
+                    MetadataContainer groupMeta = sbeGroupType.getMetadataContainer();
+                    MdpGroup mdpGroup = SbeGroup.instance();
+                    if (fields.getGroup(sbeGroupType.getGroupType().getId(), mdpGroup)) {
+                        sb.append(sbeGroupType.getGroupType().getName()).append("(count ").append(mdpGroup.getNumInGroup()).append(")=[");
+                        SbeFieldType[] groupFields = groupMeta.allFields();
+                        while (mdpGroup.hashNext()) {
+                            mdpGroup.next();
+                            MdpGroupEntry event = SbeGroupEntry.instance();
+                            mdpGroup.getEntry(event);
+                            for (SbeFieldType sbeFieldType : groupFields) {
+                                appendField(event, sbeFieldType, sb);
+                            }
                         }
+                        sb.append("]");
                     }
-                    sb.append("]");
                 }
             }
 
@@ -82,67 +84,106 @@ public class SBEUtil {
         if (!sbeMessage.hasField(id)) return;
 
         String name = sbeFieldType.getFieldType().getName();
+        sb.append(name).append("=");
         if (sbeFieldType.isString()) {
             String stringVal = stringField(sbeMessage, id, sbeFieldType.getLength());
-            sb.append(name).append("=").append(stringVal).append(", ");
+            sb.append(stringVal);
         } else if (sbeFieldType.isFloat()) {
             double instance = doubleField(sbeMessage, id);
-            sb.append(name).append("=").append(instance).append(", ");
+            sb.append(instance);
         } else if (sbeFieldType.getPrimitiveType() != null) {
             switch (sbeFieldType.getPrimitiveType()) {
                 case Char:
-                    SbeString charVal = SbeString.allocate(1);
-                    sbeMessage.getString(id, charVal);
-                    sb.append(name).append("=").append(charVal.getString()).append(", ");
+                    sb.append(charField(sbeMessage, id));
                     break;
                 case Int8:
-                    int int8Val = sbeMessage.getInt8(id);
-                    sb.append(name).append("=").append(int8Val).append(", ");
+                    sb.append(int8Field(sbeMessage, id));
                     break;
-
                 case UInt8:
-                    int uint8Val = sbeMessage.getUInt8(id);
-                    sb.append(name).append("=").append(uint8Val).append(", ");
+                    sb.append(uInt8Field(sbeMessage, id));
                     break;
                 case Int16:
-                    int int16Val = sbeMessage.getInt16(id);
-                    sb.append(name).append("=").append(int16Val).append(", ");
+                    sb.append(int16Field(sbeMessage, id));
                     break;
                 case UInt16:
-                    int uint16Val = sbeMessage.getUInt16(id);
-                    sb.append(name).append("=").append(uint16Val).append(", ");
+                    sb.append(uInt16Field(sbeMessage, id));
                     break;
                 case Int32:
-                    int int32Val = sbeMessage.getInt32(id);
-                    sb.append(name).append("=").append(int32Val).append(", ");
+                    sb.append(int32Field(sbeMessage, id));
                     break;
                 case UInt32:
-                    long uint32Val = sbeMessage.getUInt32(id);
-                    sb.append(name).append("=").append(uint32Val).append(", ");
+                    sb.append(uInt32Field(sbeMessage, id));
                     break;
                 case Int64:
-                    long int64Val = sbeMessage.getInt64(id);
-                    sb.append(name).append("=").append(int64Val).append(", ");
+                    sb.append(int64Field(sbeMessage, id));
                     break;
                 case UInt64:
-                    long uint64Val = sbeMessage.getUInt64(id);
-                    sb.append(name).append("=").append(uint64Val).append(", ");
+                    sb.append(uInt64Field(sbeMessage, id));
                     break;
             }
         } else if (sbeFieldType.isComposite()) {
             SbeMonthYear monthYear = SbeMonthYear.instance();
             if (sbeMessage.getMonthYear(id, monthYear)) {
-                sb.append(name).append("=")
-                        .append(monthYear.getYear()).append("/").append(monthYear.getMonth())
+                sb.append(monthYear.getYear()).append("/").append(monthYear.getMonth())
                         .append("/").append(monthYear.getDay()).append(" (w").append(monthYear.getWeek()).append(")");
             } else {
-                sb.append(name).append("=<Unknown composite>, ");
+                sb.append("<Unknown composite>");
             }
         } else {
-            sb.append(name).append("=<Unknown field type ").append(sbeFieldType.getFieldType().getName()).append(">, ");
+            sb.append("<Unknown field type ").append(sbeFieldType.getFieldType().getName()).append(">");
         }
+        sb.append(", ");
     }
 
+
+    private static long int64Field(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getInt64(id);
+        }
+        return 0;
+    }
+
+    private static long uInt32Field(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getUInt32(id);
+        }
+        return 0;
+    }
+
+    private static int uInt16Field(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getUInt16(id);
+        }
+        return 0;
+    }
+
+    private static short int16Field(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getInt16(id);
+        }
+        return 0;
+    }
+
+    public static short uInt8Field(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getUInt8(id);
+        }
+        return 0;
+    }
+
+    private static byte int8Field(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getInt8(id);
+        }
+        return 0;
+    }
+
+    private static char charField(FieldSet sbeMessage, int id) {
+        if (sbeMessage.hasField(id)) {
+            return sbeMessage.getChar(id);
+        }
+        return '-';
+    }
 
     public static String stringField(FieldSet mdpMessage, int fieldId, int length) {
         if (!mdpMessage.hasField(fieldId)) {
@@ -173,5 +214,19 @@ public class SBEUtil {
             logger.trace("Failed to get double field {}: {}", fieldId, t.getMessage());
             return Double.NaN;
         }
+    }
+
+    public static long uInt64Field(FieldSet fieldSet, int fieldId) {
+        if (fieldSet.hasField(fieldId)) {
+            return fieldSet.getUInt64(fieldId);
+        }
+        return 0;
+    }
+
+    public static int int32Field(FieldSet fieldSet, int fieldId) {
+        if (fieldSet.hasField(fieldId)) {
+            return fieldSet.getInt32(fieldId);
+        }
+        return 0;
     }
 }
