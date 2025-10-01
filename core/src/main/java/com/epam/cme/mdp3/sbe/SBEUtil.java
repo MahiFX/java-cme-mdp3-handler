@@ -41,8 +41,7 @@ public class SBEUtil {
         try {
             StringBuilder sb = new StringBuilder();
             MetadataContainer metadata = fields.metadata();
-            sb.append(msgName)
-                    .append("[");
+            sb.append(msgName).append("[");
             SbeFieldType[] allFields = metadata.allFields();
             for (SbeFieldType sbeFieldType : allFields) {
                 appendField(fields, sbeFieldType, sb);
@@ -84,7 +83,8 @@ public class SBEUtil {
         if (!sbeMessage.hasField(id)) return;
 
         String name = sbeFieldType.getFieldType().getName();
-        sb.append(name).append("=");
+        sb.append(name).append("(").append(id).append(")")
+                .append("=");
         if (sbeFieldType.isString()) {
             String stringVal = stringField(sbeMessage, id, sbeFieldType.getLength());
             sb.append(stringVal);
