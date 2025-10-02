@@ -237,10 +237,11 @@ public interface MdpChannel {
      * @param securityId  Security ID
      * @param subscrFlags Subscription Flags (bit set)
      * @param depth       Book depth
+     * @param impliedMaxDepth Implied Book depth
      * @return true if subscribed with success
      * @see MdEventFlags
      */
-    boolean subscribe(int securityId, final String secDesc, int subscrFlags, byte depth);
+    boolean subscribe(int securityId, final String secDesc, int subscrFlags, byte depth, byte impliedMaxDepth);
 
     /**
      * Subscribes to the given Security with the given Subscription options and default Depth.
@@ -258,10 +259,11 @@ public interface MdpChannel {
      *
      * @param securityId Security ID
      * @param depth      Book depth
+     * @param impliedMaxDepth Implied Book depth
      * @return true if subscribed with success
      * @see this#setDefSubscriptionOptions(int)
      */
-    boolean subscribe(int securityId, final String secDesc, byte depth);
+    boolean subscribe(int securityId, final String secDesc, byte depth, byte impliedMaxDepth);
 
     /**
      * Subscribes to the given Security with the default Subscription options and the default Depth.

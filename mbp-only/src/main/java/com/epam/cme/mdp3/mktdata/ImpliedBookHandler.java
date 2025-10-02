@@ -23,17 +23,22 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
     private boolean subscribedToEntireBook = false;
     private final ImpliedBookPriceEntry[] bidLevels;
     private final ImpliedBookPriceEntry[] offerLevels;
+    private final byte depth;
 
-    public ImpliedBookHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags) {
+    private long triggerTime;
+    private long transactTime;
+
+    public ImpliedBookHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags, byte depth) {
         super(channelContext, securityId, subscriptionFlags);
         setSubscriptionFlags(subscriptionFlags);
-        bidLevels = new ImpliedBookPriceEntry[PLATFORM_IMPLIED_BOOK_DEPTH];
-        offerLevels = new ImpliedBookPriceEntry[PLATFORM_IMPLIED_BOOK_DEPTH];
+        this.depth = depth;
+        bidLevels = new ImpliedBookPriceEntry[depth];
+        offerLevels = new ImpliedBookPriceEntry[depth];
         init();
     }
 
     private void init() {
-        for (int i = 0; i < PLATFORM_IMPLIED_BOOK_DEPTH; i++) {
+        for (int i = 0; i < depth; i++) {
             bidLevels[i] = new OrderBookPriceEntry();
             offerLevels[i] = new OrderBookPriceEntry();
         }
@@ -41,7 +46,7 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
 
     @Override
     public void clear() {
-        for (int i = 0; i < PLATFORM_IMPLIED_BOOK_DEPTH; i++) {
+        for (int i = 0; i < depth; i++) {
             bidLevels[i].clear();
             offerLevels[i].clear();
         }
@@ -74,6 +79,8 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
         final byte level = (byte) incrementEntry.getUInt8(1023);
         if (level > 1 && !subscribedToEntireBook) return;
         this.refreshedBook = true;
+        this.triggerTime = triggerTime;
+        this.transactTime = transactTime;
         if (level == 1) this.refreshedTop = true;
         final MDUpdateAction updateAction = MDUpdateAction.fromFIX(incrementEntry.getUInt8(279));
         handleIncrementRefresh(bidLevels, level, updateAction, incrementEntry, triggerTime, transactTime);
@@ -83,37 +90,39 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
         final byte level = (byte) incrementEntry.getUInt8(1023);
         if (level > 1 && !subscribedToEntireBook) return;
         this.refreshedBook = true;
+        this.triggerTime = triggerTime;
+        this.transactTime = transactTime;
         if (level == 1) this.refreshedTop = true;
         final MDUpdateAction updateAction = MDUpdateAction.fromFIX(incrementEntry.getUInt8(279));
         handleIncrementRefresh(offerLevels, level, updateAction, incrementEntry, triggerTime, transactTime);
     }
 
     protected void deleteEntry(final ImpliedBookPriceEntry[] levelEntries, final int level) {
-        for (int i = level - 1; i < ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH - 1; i++) {
+        for (int i = level - 1; i < depth - 1; i++) {
             levelEntries[i].refreshFromAnotherEntry(levelEntries[i + 1]);
         }
-        levelEntries[ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH - 1].clear();
+        levelEntries[depth - 1].clear();
     }
 
 
     protected void deleteFrom(final ImpliedBookPriceEntry[] levelEntries, final int n) {
-        if (n >= ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH) deleteThru(levelEntries);
-        for (int i = n; i < PLATFORM_IMPLIED_BOOK_DEPTH; i++) {
+        if (n >= depth) deleteThru(levelEntries);
+        for (int i = n; i < depth; i++) {
             levelEntries[i - n].refreshFromAnotherEntry(levelEntries[i]);
         }
-        for (int i = ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH - n; i < ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH; i++) {
+        for (int i = depth - n; i < depth; i++) {
             levelEntries[i].clear();
         }
     }
 
     protected void deleteThru(final ImpliedBookPriceEntry[] levelEntries) {
-        for (int i = 0; i < ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH; i++) {
+        for (int i = 0; i < depth; i++) {
             levelEntries[i].clear();
         }
     }
 
     protected void insertEntry(final ImpliedBookPriceEntry[] levelEntries, final int level, final FieldSet fieldSet, long triggerTime, long transactTime) {
-        for (int i = ImpliedBook.PLATFORM_IMPLIED_BOOK_DEPTH - 1; i > level - 1; i--) {
+        for (int i = depth - 1; i > level - 1; i--) {
             levelEntries[i].refreshFromAnotherEntry(levelEntries[i - 1]);
         }
         levelEntries[level - 1].refreshFromMessage(fieldSet, triggerTime, transactTime);
@@ -133,6 +142,11 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
     }
 
     @Override
+    public byte getDepth() {
+        return depth;
+    }
+
+    @Override
     public ImpliedBookPriceLevel getBid(final byte level) {
         return bidLevels[level - 1];
     }
@@ -140,6 +154,16 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
     @Override
     public ImpliedBookPriceLevel getOffer(final byte level) {
         return offerLevels[level - 1];
+    }
+
+    @Override
+    public long getTriggerTime() {
+        return triggerTime;
+    }
+
+    @Override
+    public long getTransactTime() {
+        return transactTime;
     }
 
     public void commitEvent() {

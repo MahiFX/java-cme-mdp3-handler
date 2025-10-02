@@ -13,11 +13,16 @@
 package com.epam.cme.mdp3.mktdata;
 
 public interface ImpliedBook {
-    int PLATFORM_IMPLIED_BOOK_DEPTH = 3;
 
     int getSecurityId();
+
+    byte getDepth();
 
     ImpliedBookPriceLevel getBid(byte level);
 
     ImpliedBookPriceLevel getOffer(byte level);
+
+    long getTriggerTime();
+
+    long getTransactTime();
 }

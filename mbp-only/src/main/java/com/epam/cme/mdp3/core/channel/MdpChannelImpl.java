@@ -73,6 +73,8 @@ public class MdpChannelImpl implements MdpChannel {
 
     private boolean allSecuritiesMode = false;
     private byte defMaxBookDepth = PLATFORM_DEFAULT_BOOK_DEPTH;
+    public static final int PLATFORM_DEFAULT_IMPLIED_BOOK_DEPTH = 2;
+    private byte defImpliedBookDepth = PLATFORM_DEFAULT_IMPLIED_BOOK_DEPTH;
     private int defSubscriptionOptions = MdEventFlags.MESSAGE;
 
     private final ChannelController channelController;
@@ -522,22 +524,22 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     InstrumentController findController(final int securityId, final String secDesc) {
-        return this.instruments.find(securityId, secDesc, allSecuritiesMode, defSubscriptionOptions, defMaxBookDepth);
+        return this.instruments.find(securityId, secDesc, allSecuritiesMode, defSubscriptionOptions, defMaxBookDepth, defImpliedBookDepth);
     }
 
     @Override
-    public boolean subscribe(final int securityId, final String secDesc, final int subscrFlags, final byte depth) {
-        return instruments.registerSecurity(securityId, secDesc, subscrFlags, depth);
+    public boolean subscribe(final int securityId, final String secDesc, final int subscrFlags, final byte depth, byte impliedMaxDepth) {
+        return instruments.registerSecurity(securityId, secDesc, subscrFlags, depth, impliedMaxDepth);
     }
 
     @Override
     public boolean subscribeWithDefDepth(final int securityId, final String secDesc, final int subscrFlags) {
-        return subscribe(securityId, secDesc, subscrFlags, this.defMaxBookDepth);
+        return subscribe(securityId, secDesc, subscrFlags, this.defMaxBookDepth, defImpliedBookDepth);
     }
 
     @Override
-    public boolean subscribe(final int securityId, final String secDesc, final byte depth) {
-        return subscribe(securityId, secDesc, this.defSubscriptionOptions, depth);
+    public boolean subscribe(final int securityId, final String secDesc, final byte depth, byte impliedMaxDepth) {
+        return subscribe(securityId, secDesc, this.defSubscriptionOptions, depth, impliedMaxDepth);
     }
 
     @Override
@@ -557,12 +559,12 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void setSubscriptionFlags(final int securityId, final int flags) {
-        this.instruments.setSubscriptionFlags(securityId, flags, defMaxBookDepth);
+        this.instruments.setSubscriptionFlags(securityId, flags, defMaxBookDepth, defImpliedBookDepth);
     }
 
     @Override
     public void addSubscriptionFlags(final int securityId, final int flags) {
-        this.instruments.addSubscriptionFlags(securityId, flags, defMaxBookDepth);
+        this.instruments.addSubscriptionFlags(securityId, flags, defMaxBookDepth, defImpliedBookDepth);
     }
 
     @Override

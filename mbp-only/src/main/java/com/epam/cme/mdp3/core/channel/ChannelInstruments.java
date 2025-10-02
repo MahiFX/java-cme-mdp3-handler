@@ -31,6 +31,7 @@ public class ChannelInstruments implements MdpFeedListener {
     private static final int SEC_MD_FEED_TYPE = 1022;
     private static final int SEC_MARKET_DEPTH = 264;
     private static final int SEC_DEFAULT_MD_DEPTH = 10;
+    private static final int SEC_DEFAULT_IMPILED_DEPTH = 2;
 
     private static final int PRCD_MSG_COUNT_NULL = Integer.MAX_VALUE;   // max value used as undefined (null)
     private static final int INSTRUMENT_CYCLES_MAX = 2; // do we need an option in configuration for this?
@@ -60,8 +61,9 @@ public class ChannelInstruments implements MdpFeedListener {
     public void onMessage(final MdpFeedContext feedContext, final MdpMessage secDefMsg) {
         final int subscriptionFlags = this.channelContext.notifySecurityDefinitionListeners(secDefMsg);
         final byte depth = extractMaxDepthFromSecDef(secDefMsg);
+        final byte impliedMaxDepth = extractImpledMaxDepthFromSecDef(secDefMsg);
         if (!MdEventFlags.isNothing(subscriptionFlags)) {
-            registerSecurity(secDefMsg, subscriptionFlags, depth);
+            registerSecurity(secDefMsg, subscriptionFlags, depth, impliedMaxDepth);
         } else {
             final int securityId = secDefMsg.getInt32(SEC_ID_TAG);
             final SbeString strValObj = feedContext.getStrValObj();
@@ -100,25 +102,25 @@ public class ChannelInstruments implements MdpFeedListener {
     }
 
     public InstrumentController find(final int securityId) {
-        return find(securityId, null, false, 0, (byte) 0);
+        return find(securityId, null, false, 0, (byte) 0, (byte) 0);
     }
 
-    public InstrumentController find(final int securityId, final String secDesc, boolean createIfAbsent, final int subscriptionFlags, final byte maxDepth) {
+    public InstrumentController find(final int securityId, final String secDesc, boolean createIfAbsent, final int subscriptionFlags, final byte maxDepth, byte impliedMaxDepth) {
         InstrumentController controller = this.instruments.get(securityId);
         if (controller == null && createIfAbsent) {
-            registerSecurity(securityId, secDesc, subscriptionFlags, maxDepth);
+            registerSecurity(securityId, secDesc, subscriptionFlags, maxDepth, impliedMaxDepth);
         }
         return controller;
     }
 
-    private void registerController(final int securityId, final String secDesc, final int subscriptionFlags, final byte maxDepth, final int gapThreshold) {
-        this.instruments.put(securityId, new InstrumentController(channelContext, securityId, secDesc, subscriptionFlags, maxDepth, gapThreshold));
+    private void registerController(final int securityId, final String secDesc, final int subscriptionFlags, final byte maxDepth, final int gapThreshold, byte impliedMaxDepth) {
+        this.instruments.put(securityId, new InstrumentController(channelContext, securityId, secDesc, subscriptionFlags, maxDepth, gapThreshold, impliedMaxDepth));
     }
 
-    public void registerSecurity(final MdpMessage secDef, final int subscriptionFlags, final byte maxDepth) {
+    public void registerSecurity(final MdpMessage secDef, final int subscriptionFlags, final byte maxDepth, byte impliedMaxDepth) {
         final int securityId = secDef.getInt32(SEC_ID_TAG);
         secDef.getString(SEC_DESC_TAG, secDescString);
-        registerSecurity(securityId, secDescString.getString(), subscriptionFlags, maxDepth);
+        registerSecurity(securityId, secDescString.getString(), subscriptionFlags, maxDepth, impliedMaxDepth);
     }
 
     public void updateSecDesc(final int securityId, final String secDesc) {
@@ -130,14 +132,14 @@ public class ChannelInstruments implements MdpFeedListener {
         }
     }
 
-    public boolean registerSecurity(final int securityId, final String secDesc, final int subscriptionFlags, final byte maxDepth) {
+    public boolean registerSecurity(final int securityId, final String secDesc, final int subscriptionFlags, final byte maxDepth, byte impliedMaxDepth) {
         boolean updatedState;
         synchronized (this.instruments) {
             InstrumentController instrumentController = find(securityId);
             if (instrumentController != null) {
                 updatedState = instrumentController.onResubscribe(subscriptionFlags);
             } else {
-                registerController(securityId, secDesc, subscriptionFlags, maxDepth, this.channelContext.getGapThreshold());
+                registerController(securityId, secDesc, subscriptionFlags, maxDepth, this.channelContext.getGapThreshold(), impliedMaxDepth);
                 updatedState = true;
             }
         }
@@ -177,24 +179,24 @@ public class ChannelInstruments implements MdpFeedListener {
         return MdEventFlags.NOTHING;
     }
 
-    public void setSubscriptionFlags(final int securityId, final int flags, final byte maxDepth) {
+    public void setSubscriptionFlags(final int securityId, final int flags, final byte maxDepth, byte impliedMaxDepth) {
         synchronized (this.instruments) {
             InstrumentController instrumentController = find(securityId);
             if (instrumentController != null) {
                 instrumentController.setSubscriptionFlags(flags);
             } else {
-                registerController(securityId, null, flags, maxDepth, this.channelContext.getGapThreshold());
+                registerController(securityId, null, flags, maxDepth, this.channelContext.getGapThreshold(), impliedMaxDepth);
             }
         }
     }
 
-    public void addSubscriptionFlags(final int securityId, final int flags, final byte maxDepth) {
+    public void addSubscriptionFlags(final int securityId, final int flags, final byte maxDepth, byte impliedMaxDepth) {
         synchronized (this.instruments) {
             InstrumentController instrumentController = find(securityId);
             if (instrumentController != null) {
                 instrumentController.addSubscriptionFlag(flags);
             } else {
-                registerController(securityId, null, flags, maxDepth, this.channelContext.getGapThreshold());
+                registerController(securityId, null, flags, maxDepth, this.channelContext.getGapThreshold(), impliedMaxDepth);
             }
         }
     }
@@ -219,5 +221,18 @@ public class ChannelInstruments implements MdpFeedListener {
             }
         }
         return SEC_DEFAULT_MD_DEPTH;
+    }
+
+    private byte extractImpledMaxDepthFromSecDef(final MdpMessage secDef) {
+        secDef.getGroup(SEC_MD_FEED_TYPES, mdTypeGroup);
+        while (mdTypeGroup.hashNext()) {
+            mdTypeGroup.next();
+            mdTypeGroup.getString(SEC_MD_FEED_TYPE, secMdFeedType);
+
+            if (secMdFeedType.getCharAt(secMdFeedType.getLength() - 1) == 'I') {
+                return mdTypeGroup.getInt8(SEC_MARKET_DEPTH);
+            }
+        }
+        return SEC_DEFAULT_IMPILED_DEPTH;
     }
 }

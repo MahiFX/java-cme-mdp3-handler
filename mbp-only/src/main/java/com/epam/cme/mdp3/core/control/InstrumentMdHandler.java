@@ -29,6 +29,7 @@ public class InstrumentMdHandler {
     private final int securityId;
     private int subscriptionFlags;
     private byte maxDepth;
+    private byte impliedBookDepth;
     private boolean enabled;
 
     private ImpliedBookHandler impliedBookHandler;
@@ -36,10 +37,11 @@ public class InstrumentMdHandler {
     private TradeHandler tradeHandler;
     private StatisticsHandler statisticsHandler;
 
-    public InstrumentMdHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags, final byte maxDepth) {
+    public InstrumentMdHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags, final byte maxDepth, byte impliedBookDepth) {
         this.channelContext = channelContext;
         this.securityId = securityId;
         this.maxDepth = maxDepth;
+        this.impliedBookDepth = impliedBookDepth;
         setSubscriptionFlags(subscriptionFlags);
     }
 
@@ -57,7 +59,7 @@ public class InstrumentMdHandler {
         if (MdEventFlags.hasImpliedBook(subscriptionFlags) || MdEventFlags.hasImpliedTop(subscriptionFlags)/* ||
                 SubscriptionFlags.hasConsolidatedBook(subscriptionFlags) || SubscriptionFlags.hasConsolidatedTop(subscriptionFlags)*/) {
             if (this.impliedBookHandler == null) {
-                this.impliedBookHandler = new ImpliedBookHandler(this.channelContext, securityId, subscriptionFlags);
+                this.impliedBookHandler = new ImpliedBookHandler(this.channelContext, securityId, subscriptionFlags, impliedBookDepth);
             } else {
                 this.impliedBookHandler.clear();
                 this.impliedBookHandler.setSubscriptionFlags(subscriptionFlags);

@@ -43,12 +43,12 @@ public class InstrumentController {
     private final MdpGroupEntry incrGroupEntry = SbeGroupEntry.instance();
     private final IncrementalRefreshQueueEntry incrQueueEntry = new IncrementalRefreshQueueEntry(incrGroupEntry);
 
-    public InstrumentController(final ChannelContext channelContext, final int securityId, final String secDesc, final int subscriptionFlags, final byte maxDepth, final int gapThreshold) {
+    public InstrumentController(final ChannelContext channelContext, final int securityId, final String secDesc, final int subscriptionFlags, final byte maxDepth, final int gapThreshold, byte impliedMaxDepth) {
         this.channelContext = channelContext;
         this.securityId = securityId;
         this.secDesc = secDesc;
         this.gapThreshold = gapThreshold;
-        mdHandler = new InstrumentMdHandler(channelContext, securityId, subscriptionFlags, maxDepth);
+        mdHandler = new InstrumentMdHandler(channelContext, securityId, subscriptionFlags, maxDepth, impliedMaxDepth);
         incrRefreshQueue = new IncrementalRefreshQueue(channelContext.getIncrQueueSize(), channelContext.getQueueSlotInitBufferSize());
         init(subscriptionFlags);
     }
