@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'com.epam.cme'
-version = '2.1.5-MAHI10'
+version = '2.1.5-MAHI11'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
