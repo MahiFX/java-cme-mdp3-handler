@@ -27,9 +27,9 @@ public enum SecurityTradingEvent {
 
     public static SecurityTradingEvent fromFIX(final byte val) {
         switch (val) {
-            case 1:
+            case 0:
                 return NoEvent;
-            case 2:
+            case 1:
                 return NoCancel;
             case 4:
                 return ResetStatistics;
@@ -38,7 +38,7 @@ public enum SecurityTradingEvent {
             case 6:
                 return ImpliedMatchingOFF;
             default:
-                throw new IllegalStateException("Not implemented value: " + val);
+                return null;
         }
     }
 
