@@ -193,8 +193,12 @@ public class InstrumentMdHandler {
                     throw new IllegalStateException();
             }
         }
-        if (this.multipleDepthBookHandler != null)
+        if (this.multipleDepthBookHandler != null) {
             this.channelContext.notifyBookFullRefresh(this.multipleDepthBookHandler);
+
+        }
+        this.channelContext.notifyEndOfSnapshot(securityId);
+
         if (this.impliedBookHandler != null) this.channelContext.notifyImpliedBookFullRefresh(this.impliedBookHandler);
     }
 
@@ -277,5 +281,7 @@ public class InstrumentMdHandler {
         if (this.multipleDepthBookHandler != null) this.multipleDepthBookHandler.commitEvent();
         if (this.impliedBookHandler != null) this.impliedBookHandler.commitEvent();
         if (this.tradeHandler != null) this.tradeHandler.commitEvent();
+
+        this.channelContext.notifyEndOfIncrement(securityId);
     }
 }

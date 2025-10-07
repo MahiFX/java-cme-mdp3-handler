@@ -77,6 +77,22 @@ public interface MarketDataListener {
     void onOrderBookFullRefresh(final String channelId, final int securityId, final OrderBook orderBook);
 
     /**
+     * Called at the end of a snapshot message being processed
+     *
+     * @param channelId
+     * @param securityId
+     */
+    void onEndOfSnapshot(final String channelId, final int securityId);
+
+    /**
+     * Called at the end of an incremental message being processed.
+     *
+     * @param channelId
+     * @param securityId
+     */
+    void onEndOfIncrement(final String channelId, final int securityId);
+
+    /**
      * Called when Security Statistics is refreshed.
      *
      * @param channelId  ID of MDP Channel

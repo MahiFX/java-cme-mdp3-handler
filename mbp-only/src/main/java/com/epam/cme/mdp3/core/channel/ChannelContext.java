@@ -137,6 +137,22 @@ public class ChannelContext {
         }
     }
 
+
+    public void notifyEndOfSnapshot(int securityId) {
+        final List<MarketDataListener> mdListeners = this.channel.getMdListeners();
+        for (int i = 0; i < mdListeners.size(); i++) {
+            mdListeners.get(i).onEndOfSnapshot(this.channel.getId(), securityId);
+        }
+    }
+
+
+    public void notifyEndOfIncrement(int securityId) {
+        final List<MarketDataListener> mdListeners = this.channel.getMdListeners();
+        for (int i = 0; i < mdListeners.size(); i++) {
+            mdListeners.get(i).onEndOfIncrement(this.channel.getId(), securityId);
+        }
+    }
+
     public void notifyTopOfBookRefresh(final OrderBook orderBook) {
         final List<MarketDataListener> mdListeners = this.channel.getMdListeners();
         for (int i = 0; i < mdListeners.size(); i++) {
