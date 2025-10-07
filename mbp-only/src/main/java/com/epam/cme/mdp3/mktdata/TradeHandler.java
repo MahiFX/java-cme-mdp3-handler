@@ -71,7 +71,7 @@ public class TradeHandler extends AbstractMktDataHandler {
     }
 
     public void commitEvent() {
-        // TODO batch trades
+
     }
 
     public void updateTradeSummarySnapshot(FieldSet tradeEntry, long triggerTime, long transactTime) {

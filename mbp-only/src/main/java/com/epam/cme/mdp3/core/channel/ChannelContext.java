@@ -151,6 +151,10 @@ public class ChannelContext {
         for (int i = 0; i < mdListeners.size(); i++) {
             mdListeners.get(i).onEndOfIncrement(this.channel.getId(), securityId);
         }
+        final List<TradeListener> tradeListeners = this.channel.getTradeListeners();
+        for (int i = 0; i < tradeListeners.size(); i++) {
+            tradeListeners.get(i).onEndOfIncrement(this.channel.getId(), securityId);
+        }
     }
 
     public void notifyTopOfBookRefresh(final OrderBook orderBook) {
