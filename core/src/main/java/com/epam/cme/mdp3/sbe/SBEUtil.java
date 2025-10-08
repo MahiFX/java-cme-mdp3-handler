@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+@SuppressWarnings("unused")
 public class SBEUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(SBEUtil.class);
@@ -136,28 +137,28 @@ public class SBEUtil {
     }
 
 
-    private static long int64Field(FieldSet sbeMessage, int id) {
+    public static long int64Field(FieldSet sbeMessage, int id) {
         if (sbeMessage.hasField(id)) {
             return sbeMessage.getInt64(id);
         }
         return 0;
     }
 
-    private static long uInt32Field(FieldSet sbeMessage, int id) {
+    public static long uInt32Field(FieldSet sbeMessage, int id) {
         if (sbeMessage.hasField(id)) {
             return sbeMessage.getUInt32(id);
         }
         return 0;
     }
 
-    private static int uInt16Field(FieldSet sbeMessage, int id) {
+    public static int uInt16Field(FieldSet sbeMessage, int id) {
         if (sbeMessage.hasField(id)) {
             return sbeMessage.getUInt16(id);
         }
         return 0;
     }
 
-    private static short int16Field(FieldSet sbeMessage, int id) {
+    public static short int16Field(FieldSet sbeMessage, int id) {
         if (sbeMessage.hasField(id)) {
             return sbeMessage.getInt16(id);
         }
@@ -171,14 +172,14 @@ public class SBEUtil {
         return 0;
     }
 
-    private static byte int8Field(FieldSet sbeMessage, int id) {
+    public static byte int8Field(FieldSet sbeMessage, int id) {
         if (sbeMessage.hasField(id)) {
             return sbeMessage.getInt8(id);
         }
         return 0;
     }
 
-    private static char charField(FieldSet sbeMessage, int id) {
+    public static char charField(FieldSet sbeMessage, int id) {
         if (sbeMessage.hasField(id)) {
             return sbeMessage.getChar(id);
         }
