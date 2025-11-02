@@ -83,7 +83,7 @@ public class ChannelInstruments implements MdpFeedListener {
     }
 
     @Override
-    public void onPacket(final MdpFeedContext feedContext, final MdpPacket instrumentPacket) {
+    public void onPacket(final MdpFeedContext feedContext, final MdpPacket instrumentPacket, long packetRecvNanos) {
         final Iterator<MdpMessage> mdpMessageIterator = instrumentPacket.iterator();
         MdpMessage mdpMessage;
         while (mdpMessageIterator.hasNext()) {

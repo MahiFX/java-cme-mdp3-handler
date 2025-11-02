@@ -21,5 +21,5 @@ public interface MdpFeedListener {
 
     void onFeedStopped(final FeedType feedType, final Feed feed);
 
-    void onPacket(MdpFeedContext feedContext, MdpPacket packet);
+    void onPacket(MdpFeedContext feedContext, MdpPacket packet, long packetRecvNanos);
 }

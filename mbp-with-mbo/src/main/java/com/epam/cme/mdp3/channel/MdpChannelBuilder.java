@@ -36,8 +36,8 @@ public class MdpChannelBuilder {
     private final String channelId;
     private URI cfgURI;
     private URI schemaURI;
-    private Map<FeedType, String> feedANetworkInterfaces = new HashMap<>();
-    private Map<FeedType, String> feedBNetworkInterfaces = new HashMap<>();
+    private final Map<FeedType, String> feedANetworkInterfaces = new HashMap<>();
+    private final Map<FeedType, String> feedBNetworkInterfaces = new HashMap<>();
     private ChannelListener channelListener;
     private ScheduledExecutorService scheduler;
     private int incrQueueSize = DEF_INCR_QUEUE_SIZE;

@@ -26,7 +26,6 @@ import com.epam.cme.mdp3.sbe.message.meta.SbeFieldType;
 import com.epam.cme.mdp3.sbe.message.meta.SbePrimitiveType;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypeBuildException;
 import com.epam.cme.mdp3.test.SbeDataDumpHelper;
-
 import net.openhft.chronicle.bytes.internal.NativeBytesStore;
 import org.openjdk.jmh.annotations.*;
 
@@ -283,7 +282,8 @@ public class IncrementalRefreshPerfTest {
             testBuffer.flip();
             testPacket.length(testPcktBytes.length);
 
-            this.mdpHandler.handlePacket(this.feedContext, testPacket);
+            long packetRecvNanos = System.currentTimeMillis() * 1_000_000;
+            this.mdpHandler.handlePacket(this.feedContext, testPacket, packetRecvNanos);
         }
 
         int increaseTestSeqNum() {

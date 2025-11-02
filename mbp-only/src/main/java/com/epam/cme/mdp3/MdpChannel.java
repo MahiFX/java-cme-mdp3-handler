@@ -318,5 +318,5 @@ public interface MdpChannel {
      */
     void removeSubscriptionFlags(int securityId, int flags);
 
-    void handlePacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket);
+    void handlePacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, long packetRecvNanos);
 }

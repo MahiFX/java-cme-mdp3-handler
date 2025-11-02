@@ -100,18 +100,15 @@ public class ChannelController {
         channelContext.notifyChannelStateListeners(prevState, newState);
     }
 
-    public void handleIncrementalPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket) {
-        handleIncrementalPacket(feedContext, mdpPacket, false);
-    }
 
-    public void handleIncrementalPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, final boolean fromQueue) {
+    public void handleIncrementalPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, long packetRecvNanos) {
         final long msgSeqNum = mdpPacket.getMsgSeqNum();
         logger.trace("Feed {}{} | handleIncrementalPacket: this.prcdSeqNum={}, mdpPacket.getMsgSeqNum()={}",
                 feedContext.getFeedType(), feedContext.getFeed(), this.prcdSeqNum, msgSeqNum);
         lock.lock();
         try {
             this.lastIncrPcktReceived = System.currentTimeMillis();
-            handleIncrementalMessages(feedContext, msgSeqNum, mdpPacket);
+            handleIncrementalMessages(feedContext, msgSeqNum, mdpPacket, packetRecvNanos);
         } finally {
             lock.unlock();
         }
@@ -130,12 +127,11 @@ public class ChannelController {
         }
     }
 
-    private void handleMarketDataIncrementalRefresh(final MdpFeedContext feedContext, final MdpMessage mdpMessage, final long msgSeqNum, final short matchEventIndicator) {
+    private void handleMarketDataIncrementalRefresh(final MdpFeedContext feedContext, final MdpMessage mdpMessage, final long msgSeqNum, final short matchEventIndicator, long systemTransactTime) {
         final MdpGroup incrGroup = feedContext.getMdpGroupObj();
         InstrumentController instController = null;
         mdpMessage.getGroup(MdConstants.NO_MD_ENTRIES, incrGroup);
         long msgTransactTime = mdpMessage.getUInt64(60);
-        long systemTransactTime = System.currentTimeMillis() * 1_000_000;
         while (incrGroup.hashNext()) {
             incrGroup.next();
             final MDEntryType mdEntryType = MDEntryType.fromFIX(incrGroup.getChar(INCR_RFRSH_MD_ENTRY_TYPE));
@@ -164,7 +160,7 @@ public class ChannelController {
         this.channelContext.notifyChannelResetFinishedListeners(resetMessage);
     }
 
-    private void handleIncrementalMessages(final MdpFeedContext feedContext, final long msgSeqNum, final MdpPacket mdpPacket) {
+    private void handleIncrementalMessages(final MdpFeedContext feedContext, final long msgSeqNum, final MdpPacket mdpPacket, long packetRecvNanos) {
         final Iterator<MdpMessage> mdpMessageIterator = mdpPacket.iterator();
         while (mdpMessageIterator.hasNext()) {
             final MdpMessage mdpMessage = mdpMessageIterator.next();
@@ -174,7 +170,7 @@ public class ChannelController {
 
             if (messageType.getSemanticMsgType() == SemanticMsgType.MarketDataIncrementalRefresh) {
                 final short matchEventIndicator = mdpMessage.getUInt8(SbeConstants.MATCHEVENTINDICATOR_TAG);
-                handleMarketDataIncrementalRefresh(feedContext, mdpMessage, msgSeqNum, matchEventIndicator);
+                handleMarketDataIncrementalRefresh(feedContext, mdpMessage, msgSeqNum, matchEventIndicator, packetRecvNanos);
                 if (channelContext.hasMdListeners() && MatchEventIndicator.hasEndOfEvent(matchEventIndicator)) {
                     this.eventController.commit(this.eventCommitFunction);
                 }

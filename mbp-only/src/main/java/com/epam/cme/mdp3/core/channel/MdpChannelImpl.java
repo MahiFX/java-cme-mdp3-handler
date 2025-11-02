@@ -573,15 +573,15 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     @Override
-    public void handlePacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket) {
+    public void handlePacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, long packetRecvNanos) {
         final FeedType feedType = feedContext.getFeedType();
         final Feed feed = feedContext.getFeed();
         logger.trace("New MDP Packet: #{} from Feed {}{}:", mdpPacket.getMsgSeqNum(), feedType, feed);
         channelContext.notifyPacketReceived(feedType, feed, mdpPacket);
         if (feedType == FeedType.N) {
-            instruments.onPacket(feedContext, mdpPacket);
+            instruments.onPacket(feedContext, mdpPacket, packetRecvNanos);
         } else if (feedType == FeedType.I) {
-            channelController.handleIncrementalPacket(feedContext, mdpPacket);
+            channelController.handleIncrementalPacket(feedContext, mdpPacket, packetRecvNanos);
         } else if (feedType == FeedType.S) {
             channelController.handleSnapshotPacket(feedContext, mdpPacket);
         }
@@ -612,8 +612,8 @@ public class MdpChannelImpl implements MdpChannel {
         }
 
         @Override
-        public void onPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket) {
-            handlePacket(feedContext, mdpPacket);
+        public void onPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, long packetRecvNanos) {
+            handlePacket(feedContext, mdpPacket, packetRecvNanos);
         }
     }
 }

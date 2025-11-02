@@ -7,7 +7,7 @@ plugins {
     id "maven-publish"
 }
 group = 'com.epam.cme'
-version = '2.1.5-MAHI16'
+version = '2.1.5-MAHI18'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 

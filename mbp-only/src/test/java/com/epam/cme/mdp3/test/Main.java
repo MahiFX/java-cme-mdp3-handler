@@ -15,8 +15,8 @@ package com.epam.cme.mdp3.test;
 import com.epam.cme.mdp3.*;
 import com.epam.cme.mdp3.core.channel.MdpChannelBuilder;
 import com.epam.cme.mdp3.core.control.InstrumentState;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -154,7 +154,7 @@ public class Main {
         final List<MdpChannel> openChannels = new ArrayList<>();
         try {
             resolvedInstruments.forEach((s, instrumentInfos) -> {
-                if (!resolvedInstruments.isEmpty()) {
+                if (instrumentInfos != null && !instrumentInfos.isEmpty()) {
                     try {
                         openChannels.add(openChannel(s, instrumentInfos));
                     } catch (Exception e) {

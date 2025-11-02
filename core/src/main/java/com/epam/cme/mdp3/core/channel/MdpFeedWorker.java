@@ -15,8 +15,8 @@ package com.epam.cme.mdp3.core.channel;
 import com.epam.cme.mdp3.MdpPacket;
 import com.epam.cme.mdp3.core.cfg.ConnectionCfg;
 import com.epam.cme.mdp3.sbe.message.SbeConstants;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.*;
@@ -24,10 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.MembershipKey;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,7 +34,7 @@ import static com.epam.cme.mdp3.core.channel.MdpFeedRtmState.*;
 
 public class MdpFeedWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(MdpFeedWorker.class);
-    public static final int RCV_BUFFER_SIZE = 4*1024*1024;
+    public static final int RCV_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
 
     private final ConnectionCfg cfg;
     private String networkInterface = null;
@@ -45,7 +42,6 @@ public class MdpFeedWorker implements Runnable {
     private final List<MdpFeedListener> listeners = new ArrayList<>();
     private DatagramChannel multicastChannel;
     private MembershipKey membershipKey;
-    private Selector selector;
     private NetworkInterface ni;
     private MdpFeedContext feedContext;
     private final AtomicReference<MdpFeedRtmState> feedState = new AtomicReference<>(STOPPED);
@@ -67,12 +63,12 @@ public class MdpFeedWorker implements Runnable {
             this.feedContext = new MdpFeedContext(getCfg());
             this.ni = null;
             if (this.networkInterface != null) {
-            	ni = NetworkInterface.getByName(this.networkInterface);
-            	if (ni == null) {
-            		ni = NetworkInterface.getByInetAddress(InetAddress.getByName(this.networkInterface));
-            	}
+                ni = NetworkInterface.getByName(this.networkInterface);
+                if (ni == null) {
+                    ni = NetworkInterface.getByInetAddress(InetAddress.getByName(this.networkInterface));
+                }
             } else {
-            	ni = NetworkInterface.getByInetAddress(InetAddress.getLocalHost()); 
+                ni = NetworkInterface.getByInetAddress(InetAddress.getLocalHost());
             }
         } catch (IOException e) {
             logger.error("Failed open DatagramChannel", e);
@@ -97,8 +93,6 @@ public class MdpFeedWorker implements Runnable {
         try {
             final InetAddress group = InetAddress.getByName(ip);
             this.multicastChannel.bind(new InetSocketAddress(port));
-            selector = Selector.open();
-            multicastChannel.register(selector, SelectionKey.OP_READ);
             logger.debug("Bound to {}", port);
             this.membershipKey = multicastChannel.join(group, ni);
             logger.debug("Joined to multicast group {}", group);
@@ -109,7 +103,6 @@ public class MdpFeedWorker implements Runnable {
     }
 
     public void close() throws IOException {
-        if (selector.isOpen()) selector.close();
         if (this.membershipKey.isValid()) this.membershipKey.drop();
         if (this.multicastChannel.isOpen()) {
             this.multicastChannel.close();
@@ -163,45 +156,45 @@ public class MdpFeedWorker implements Runnable {
         logger.debug("Stop message loop in {}", cfg.toString());
     }
 
+    private long backoffNanos = 1_000; // Start at 1 microsecond
+    private static final long MAX_BACKOFF_NANOS = 1_000_000; // Max 1ms
+
     private void select(final ByteBuffer byteBuffer, final MdpPacket mdpPacket) throws IOException {
-        if (selector.isOpen() && selector.select() > 0) {
-            Iterator<?> selectedKeys = selector.selectedKeys().iterator();
-            while (selectedKeys.hasNext()) {
-                final SelectionKey key = (SelectionKey) selectedKeys.next();
-                selectedKeys.remove();
-
-                if (key.isValid() && key.isReadable()) {
-                    receiveMessageAndNotifySubscribers(byteBuffer, mdpPacket);
-                }
-            }
-        }
-    }
-
-    private void receiveMessageAndNotifySubscribers(final ByteBuffer byteBuffer, final MdpPacket mdpPacket) throws IOException {
         byteBuffer.clear();
-        multicastChannel.receive(byteBuffer);
-        byteBuffer.flip();
-        final int receivedPacketSize = byteBuffer.limit();
-        if (receivedPacketSize > 0) {
-            mdpPacket.length(receivedPacketSize);
-            notifyListeners(mdpPacket);
+        SocketAddress source = multicastChannel.receive(byteBuffer);
+
+        if (source != null) {
+            backoffNanos = 1_000; // Reset on packet received
+            long packetRecvNanos = System.currentTimeMillis() * 1_000_000;
+            byteBuffer.flip();
+            final int receivedPacketSize = byteBuffer.limit();
+            if (receivedPacketSize > 0) {
+                mdpPacket.length(receivedPacketSize);
+                notifyListeners(mdpPacket, packetRecvNanos);
+            }
+        } else {
+            LockSupport.parkNanos(backoffNanos);
+            backoffNanos = Math.min(backoffNanos * 2, MAX_BACKOFF_NANOS);
         }
     }
 
-    private void notifyListeners(final MdpPacket mdpPacket) {
-        for (int i = 0; i < this.listeners.size(); i++) {
-            this.listeners.get(i).onPacket(this.feedContext, mdpPacket);
+    private void notifyListeners(final MdpPacket mdpPacket, long packetRecvNanos) {
+        final int listenerCount = this.listeners.size();
+        for (int i = 0; i < listenerCount; i++) {
+            this.listeners.get(i).onPacket(this.feedContext, mdpPacket, packetRecvNanos);
         }
     }
 
     private void notifyStarted() {
-        for (int i = 0; i < this.listeners.size(); i++) {
+        int listenerCount = this.listeners.size();
+        for (int i = 0; i < listenerCount; i++) {
             this.listeners.get(i).onFeedStarted(cfg.getFeedType(), cfg.getFeed());
         }
     }
 
     private void notifyStopped() {
-        for (int i = 0; i < this.listeners.size(); i++) {
+        int listenerCount = this.listeners.size();
+        for (int i = 0; i < listenerCount; i++) {
             this.listeners.get(i).onFeedStopped(cfg.getFeedType(), cfg.getFeed());
         }
     }
@@ -224,11 +217,7 @@ public class MdpFeedWorker implements Runnable {
     }
 
     public boolean shutdown() {
-        final boolean res = this.feedState.compareAndSet(ACTIVE, PENDING_SHUTDOWN);
-        if (res && selector != null) {
-            selector.wakeup();
-        }
-        return res;
+        return this.feedState.compareAndSet(ACTIVE, PENDING_SHUTDOWN);
     }
 
     public ConnectionCfg getCfg() {

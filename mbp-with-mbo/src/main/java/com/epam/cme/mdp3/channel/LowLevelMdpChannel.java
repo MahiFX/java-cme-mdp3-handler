@@ -16,12 +16,14 @@ import com.epam.cme.mdp3.*;
 import com.epam.cme.mdp3.control.*;
 import com.epam.cme.mdp3.core.cfg.ChannelCfg;
 import com.epam.cme.mdp3.core.cfg.ConnectionCfg;
-import com.epam.cme.mdp3.core.channel.*;
+import com.epam.cme.mdp3.core.channel.MdpFeedContext;
+import com.epam.cme.mdp3.core.channel.MdpFeedException;
+import com.epam.cme.mdp3.core.channel.MdpFeedListener;
+import com.epam.cme.mdp3.core.channel.MdpFeedWorker;
 import com.epam.cme.mdp3.core.channel.tcp.MdpTCPChannel;
 import com.epam.cme.mdp3.core.channel.tcp.MdpTCPMessageRequester;
 import com.epam.cme.mdp3.core.channel.tcp.TCPChannel;
 import com.epam.cme.mdp3.core.channel.tcp.TCPMessageRequester;
-import com.epam.cme.mdp3.control.ChannelController;
 import com.epam.cme.mdp3.sbe.message.SbeString;
 import com.epam.cme.mdp3.sbe.message.meta.MdpMessageType;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypes;
@@ -208,7 +210,7 @@ public class LowLevelMdpChannel implements MdpChannel {
         }
 
         @Override
-        public void onPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket) {
+        public void onPacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, long packetRecvNanos) {
             final FeedType feedType = feedContext.getFeedType();
             final Feed feed = feedContext.getFeed();
             if (logger.isTraceEnabled()) {

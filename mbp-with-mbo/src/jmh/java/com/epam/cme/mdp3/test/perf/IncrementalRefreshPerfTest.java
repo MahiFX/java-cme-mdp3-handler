@@ -166,7 +166,7 @@ public class IncrementalRefreshPerfTest {
             testBuffer.put(bytes);
             testBuffer.flip();
             testPacket.length(sequenceLength + bytes.length);
-            mdpFeedListener.onPacket(context, testPacket);
+            mdpFeedListener.onPacket(context, testPacket, System.currentTimeMillis() * 1_000_000);
         }
 
         void handleNextTestPacketWithSequenceReplace(MdpFeedContext context, ByteBuffer bb, int sequence) {
