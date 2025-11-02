@@ -24,7 +24,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.MembershipKey;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,6 +45,7 @@ public class MdpFeedWorker implements Runnable {
     private final List<MdpFeedListener> listeners = new ArrayList<>();
     private DatagramChannel multicastChannel;
     private MembershipKey membershipKey;
+    private Selector selector;
     private NetworkInterface ni;
     private MdpFeedContext feedContext;
     private final AtomicReference<MdpFeedRtmState> feedState = new AtomicReference<>(STOPPED);
@@ -93,6 +97,8 @@ public class MdpFeedWorker implements Runnable {
         try {
             final InetAddress group = InetAddress.getByName(ip);
             this.multicastChannel.bind(new InetSocketAddress(port));
+            selector = Selector.open();
+            multicastChannel.register(selector, SelectionKey.OP_READ);
             logger.debug("Bound to {}", port);
             this.membershipKey = multicastChannel.join(group, ni);
             logger.debug("Joined to multicast group {}", group);
@@ -103,6 +109,7 @@ public class MdpFeedWorker implements Runnable {
     }
 
     public void close() throws IOException {
+        if (selector.isOpen()) selector.close();
         if (this.membershipKey.isValid()) this.membershipKey.drop();
         if (this.multicastChannel.isOpen()) {
             this.multicastChannel.close();
@@ -156,25 +163,29 @@ public class MdpFeedWorker implements Runnable {
         logger.debug("Stop message loop in {}", cfg.toString());
     }
 
-    private long backoffNanos = 1_000; // Start at 1 microsecond
-    private static final long MAX_BACKOFF_NANOS = 1_000_000; // Max 1ms
-
     private void select(final ByteBuffer byteBuffer, final MdpPacket mdpPacket) throws IOException {
-        byteBuffer.clear();
-        SocketAddress source = multicastChannel.receive(byteBuffer);
+        if (selector.isOpen() && selector.select() > 0) {
+            Iterator<?> selectedKeys = selector.selectedKeys().iterator();
+            while (selectedKeys.hasNext()) {
+                final SelectionKey key = (SelectionKey) selectedKeys.next();
+                selectedKeys.remove();
 
-        if (source != null) {
-            backoffNanos = 1_000; // Reset on packet received
-            long packetRecvNanos = System.currentTimeMillis() * 1_000_000;
-            byteBuffer.flip();
-            final int receivedPacketSize = byteBuffer.limit();
-            if (receivedPacketSize > 0) {
-                mdpPacket.length(receivedPacketSize);
-                notifyListeners(mdpPacket, packetRecvNanos);
+                if (key.isValid() && key.isReadable()) {
+                    receiveMessageAndNotifySubscribers(byteBuffer, mdpPacket);
+                }
             }
-        } else {
-            LockSupport.parkNanos(backoffNanos);
-            backoffNanos = Math.min(backoffNanos * 2, MAX_BACKOFF_NANOS);
+        }
+    }
+
+    private void receiveMessageAndNotifySubscribers(final ByteBuffer byteBuffer, final MdpPacket mdpPacket) throws IOException {
+        byteBuffer.clear();
+        multicastChannel.receive(byteBuffer);
+        long packetRecvNanos = System.currentTimeMillis() * 1_000_000;
+        byteBuffer.flip();
+        final int receivedPacketSize = byteBuffer.limit();
+        if (receivedPacketSize > 0) {
+            mdpPacket.length(receivedPacketSize);
+            notifyListeners(mdpPacket, packetRecvNanos);
         }
     }
 
@@ -217,7 +228,11 @@ public class MdpFeedWorker implements Runnable {
     }
 
     public boolean shutdown() {
-        return this.feedState.compareAndSet(ACTIVE, PENDING_SHUTDOWN);
+        final boolean res = this.feedState.compareAndSet(ACTIVE, PENDING_SHUTDOWN);
+        if (res && selector != null) {
+            selector.wakeup();
+        }
+        return res;
     }
 
     public ConnectionCfg getCfg() {

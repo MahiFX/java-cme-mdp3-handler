@@ -271,7 +271,8 @@ public class InstrumentController {
                     pushIncrementalRefreshEntryInQueue(msgSeqNum, matchEventIndicator, rptSeqNum, incrRefreshEntry, triggerTime, transactTime);
                 }
             } else if (currentState == InstrumentState.INITIAL) {
-                if (processedRptSeqNum == 0 && rptSeqNum == 1) {
+                if (processedRptSeqNum == 0) {
+                    // Accept the first message with any rptSeqNum to bootstrap the sequence
                     this.processedRptSeqNum = rptSeqNum;
                     switchState(currentState, InstrumentState.SYNC);
                     handleIncrementalRefreshEntry(msgSeqNum, matchEventIndicator, incrRefreshEntry, triggerTime, transactTime);
