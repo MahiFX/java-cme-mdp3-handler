@@ -13,6 +13,6 @@
 package com.epam.cme.mdp3.core.control;
 
 @FunctionalInterface
-interface EventCommitFunction {
+public interface EventCommitFunction {
     void onCommit(final int securityId);
 }

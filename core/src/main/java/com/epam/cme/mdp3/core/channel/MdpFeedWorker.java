@@ -49,6 +49,7 @@ public class MdpFeedWorker implements Runnable {
     private NetworkInterface ni;
     private MdpFeedContext feedContext;
     private final AtomicReference<MdpFeedRtmState> feedState = new AtomicReference<>(STOPPED);
+    private int listenerCount;
 
     public MdpFeedWorker(final ConnectionCfg cfg) throws MdpFeedException {
         this.cfg = cfg;
@@ -91,6 +92,7 @@ public class MdpFeedWorker implements Runnable {
 
     public void addListener(final MdpFeedListener mdpFeedListener) {
         listeners.add(mdpFeedListener);
+        this.listenerCount = listeners.size();
     }
 
     private void connect(final String ip, final int port) throws MdpFeedException {
@@ -190,21 +192,18 @@ public class MdpFeedWorker implements Runnable {
     }
 
     private void notifyListeners(final MdpPacket mdpPacket, long packetRecvNanos) {
-        final int listenerCount = this.listeners.size();
         for (int i = 0; i < listenerCount; i++) {
             this.listeners.get(i).onPacket(this.feedContext, mdpPacket, packetRecvNanos);
         }
     }
 
     private void notifyStarted() {
-        int listenerCount = this.listeners.size();
         for (int i = 0; i < listenerCount; i++) {
             this.listeners.get(i).onFeedStarted(cfg.getFeedType(), cfg.getFeed());
         }
     }
 
     private void notifyStopped() {
-        int listenerCount = this.listeners.size();
         for (int i = 0; i < listenerCount; i++) {
             this.listeners.get(i).onFeedStopped(cfg.getFeedType(), cfg.getFeed());
         }

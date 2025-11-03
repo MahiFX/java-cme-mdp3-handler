@@ -38,7 +38,7 @@ public class ChannelInstruments implements MdpFeedListener {
 
     private final ChannelContext channelContext;
     private final IntObjMap<InstrumentController> instruments = HashIntObjMaps.newMutableMap();
-    private AtomicInteger msgCountDown = new AtomicInteger(PRCD_MSG_COUNT_NULL);
+    private final AtomicInteger msgCountDown = new AtomicInteger(PRCD_MSG_COUNT_NULL);
 
     private final SbeString secDescString = SbeString.allocate(100);
     private final MdpGroup mdTypeGroup = SbeGroup.instance();
@@ -59,7 +59,7 @@ public class ChannelInstruments implements MdpFeedListener {
     }
 
     public void onMessage(final MdpFeedContext feedContext, final MdpMessage secDefMsg) {
-        final int subscriptionFlags = this.channelContext.notifySecurityDefinitionListeners(secDefMsg);
+        final int subscriptionFlags = this.channelContext.channel.notifySecurityDefinitionListeners(secDefMsg);
         final byte depth = extractMaxDepthFromSecDef(secDefMsg);
         final byte impliedMaxDepth = extractImpledMaxDepthFromSecDef(secDefMsg);
         if (!MdEventFlags.isNothing(subscriptionFlags)) {

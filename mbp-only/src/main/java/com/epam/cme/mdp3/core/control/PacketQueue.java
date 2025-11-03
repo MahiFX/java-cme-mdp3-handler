@@ -14,10 +14,11 @@ package com.epam.cme.mdp3.core.control;
 
 import com.epam.cme.mdp3.MdpPacket;
 
+@SuppressWarnings("ForLoopReplaceableByForEach")
 @Deprecated
 public class PacketQueue {
-    private PacketHolder[] slots;
-    private int queueSize;
+    private final PacketHolder[] slots;
+    private final int queueSize;
     private long lastSeqNum = 0;
 
     public PacketQueue(final int size, final int incrQueueDefPacketSize) {

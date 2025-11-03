@@ -1,5 +1,5 @@
 group 'com.epam.cme'
-version '2.1.5-MAHI19'
+version '2.1.5-MAHI20'
 
 apply plugin: 'java'
 apply plugin: 'maven-publish'

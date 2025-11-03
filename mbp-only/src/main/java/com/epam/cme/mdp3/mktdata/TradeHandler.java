@@ -49,7 +49,7 @@ public class TradeHandler extends AbstractMktDataHandler {
 
             summary.update(securityId, tradeId, price, qty, side, triggerTime, transactTime);
 
-            channelContext.notifyTradeListeners(securityId, summary);
+            channelContext.channel.notifyTradeListeners(securityId, summary);
         } catch (Throwable ex) {
             String dump = "";
             if (tradeEntry instanceof AbstractFieldSet) {

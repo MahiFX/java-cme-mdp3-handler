@@ -194,12 +194,13 @@ public class InstrumentMdHandler {
             }
         }
         if (this.multipleDepthBookHandler != null) {
-            this.channelContext.notifyBookFullRefresh(this.multipleDepthBookHandler);
+            this.channelContext.channel.notifyBookFullRefresh(this.multipleDepthBookHandler);
 
         }
-        this.channelContext.notifyEndOfSnapshot(securityId);
+        this.channelContext.channel.notifyEndOfSnapshot(securityId);
 
-        if (this.impliedBookHandler != null) this.channelContext.notifyImpliedBookFullRefresh(this.impliedBookHandler);
+        if (this.impliedBookHandler != null)
+            this.channelContext.channel.notifyImpliedBookFullRefresh(this.impliedBookHandler);
     }
 
     public void handleIncrementalRefreshEntry(final FieldSet incrementEntry, long triggerTime, long transactTime) {
@@ -282,6 +283,6 @@ public class InstrumentMdHandler {
         if (this.impliedBookHandler != null) this.impliedBookHandler.commitEvent();
         if (this.tradeHandler != null) this.tradeHandler.commitEvent();
 
-        this.channelContext.notifyEndOfIncrement(securityId);
+        this.channelContext.channel.notifyEndOfIncrement(securityId);
     }
 }

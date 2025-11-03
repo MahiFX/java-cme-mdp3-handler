@@ -35,8 +35,10 @@ import java.util.concurrent.locks.ReentrantLock;
 import static com.epam.cme.mdp3.mktdata.MdConstants.INCR_RFRSH_MD_ENTRY_TYPE;
 import static com.epam.cme.mdp3.mktdata.MdConstants.LAST_MSG_SEQ_NUM_PROCESSED;
 
+@SuppressWarnings("WhileLoopReplaceableByForEach")
 public class ChannelController {
     private static final Logger logger = LoggerFactory.getLogger(ChannelController.class);
+    private int outOfSyncInstrumentCount;
     private ChannelContext channelContext;
     private static final int PRCD_SNPT_COUNT_NULL = (int) SbePrimitiveType.Int32.getNullValue();
     private static final int SNAPSHOT_CYCLES_MAX = 5;
@@ -49,14 +51,14 @@ public class ChannelController {
     private ChannelState state = ChannelState.INITIAL;
     private long prcdSeqNum = 0;
     private long lastMsgSeqNumPrcd369 = 0;
-    private Lock lock = new ReentrantLock();
+    private final Lock lock = new ReentrantLock();
 
     private long lastIncrPcktReceived = 0;
     private boolean wasChannelResetInPrcdPacket = false;
 
     private final EventController eventController = new InMemoryEventController();
 
-    private Set<Integer> outOfSyncInstruments = new HashSet<>(); //out of sync instrument set
+    private final Set<Integer> outOfSyncInstruments = new HashSet<>(); //out of sync instrument set
 
     private final EventCommitFunction eventCommitFunction = (securityId) -> {
         if (channelContext != null) {
@@ -68,11 +70,12 @@ public class ChannelController {
         }
     };
 
-    public ChannelController(final ChannelContext channelContext, final int queueSize, final int queueSlotBufSize) {
+    public ChannelController(final ChannelContext channelContext) {
         this.mdpMessageTypes = channelContext.getMdpMessageTypes();
         this.channelContext = channelContext;
         this.requestForQuoteHandler = new RequestForQuoteHandler(channelContext);
         this.securityStatusHandler = new SecurityStatusHandler(channelContext);
+        outOfSyncInstrumentCount = this.outOfSyncInstruments.size();
     }
 
     public long getPrcdSeqNum() {
@@ -97,7 +100,7 @@ public class ChannelController {
 
     public void switchState(final ChannelState prevState, final ChannelState newState) {
         this.state = newState;
-        channelContext.notifyChannelStateListeners(prevState, newState);
+        channelContext.channel.notifyChannelStateListeners(prevState, newState);
     }
 
 
@@ -150,14 +153,14 @@ public class ChannelController {
     }
 
     private void handleChannelReset(final MdpMessage resetMessage) {
-        this.channelContext.notifyChannelResetListeners(resetMessage);
+        this.channelContext.channel.notifyChannelResetListeners(resetMessage);
         this.prcdSeqNum = 0;
         this.lastMsgSeqNumPrcd369 = 0;
         this.wasChannelResetInPrcdPacket = true;
         channelContext.getInstruments().resetAll();
         switchState(ChannelState.SYNC);
         if (this.channelContext.hasMdListeners()) this.eventController.reset();
-        this.channelContext.notifyChannelResetFinishedListeners(resetMessage);
+        this.channelContext.channel.notifyChannelResetFinishedListeners(resetMessage);
     }
 
     private void handleIncrementalMessages(final MdpFeedContext feedContext, final long msgSeqNum, final MdpPacket mdpPacket, long packetRecvNanos) {
@@ -195,7 +198,7 @@ public class ChannelController {
         }
     }
 
-    private void stopSnapshotListening(final MdpFeedContext feedContext) {
+    private void stopSnapshotListening() {
         channelContext.stopSnapshotFeeds();
         if (this.state != ChannelState.SYNC) {
             this.prcdSeqNum = this.lastMsgSeqNumPrcd369;
@@ -209,13 +212,12 @@ public class ChannelController {
         logger.trace("Feed {}:{} | handleSnapshotMessage: processedSeqNum={}, lastMsgSeqNumPrcd369={}, mdpMessage.getUInt32(369)={}",
                 feedContext.getFeedType(), feedContext.getFeed(), prcdSeqNum, lastMsgSeqNumPrcd369, lastMsgSeqNumProcessed);
         if (snptPktSeqNum == 1 && canStopSnapshotListening(snptMsgCountDown)) {
-            stopSnapshotListening(feedContext);
+            stopSnapshotListening();
             return;
         }
         handleSnapshotMessage(feedContext, mdpMessage);
         if (this.snptMsgCountDown == PRCD_SNPT_COUNT_NULL) {
-            final int totalNumReports = (int) mdpMessage.getUInt32(911) * SNAPSHOT_CYCLES_MAX;
-            this.snptMsgCountDown = totalNumReports;
+            this.snptMsgCountDown = (int) mdpMessage.getUInt32(911) * SNAPSHOT_CYCLES_MAX;
         }
         this.snptMsgCountDown--;
         this.lastMsgSeqNumPrcd369 = lastMsgSeqNumProcessed;
@@ -250,14 +252,17 @@ public class ChannelController {
 
     public void addOutOfSyncInstrument(final Integer instrumentId) {
         this.outOfSyncInstruments.add(instrumentId);
+        outOfSyncInstrumentCount = outOfSyncInstruments.size();
     }
 
     public boolean removeOutOfSyncInstrument(final Integer instrumentId) {
-        return this.outOfSyncInstruments.remove(instrumentId);
+        boolean result = this.outOfSyncInstruments.remove(instrumentId);
+        outOfSyncInstrumentCount = outOfSyncInstruments.size();
+        return result;
     }
 
     public boolean hasOutOfSyncInstruments() {
-        return this.outOfSyncInstruments.size() > 0;
+        return outOfSyncInstrumentCount > 0;
     }
 
     private boolean canStopSnapshotListening(final int msgLeft) {

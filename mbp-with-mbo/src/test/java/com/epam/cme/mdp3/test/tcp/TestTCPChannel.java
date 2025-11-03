@@ -49,6 +49,9 @@ public class TestTCPChannel implements TCPChannel {
     public int receive(ByteBuffer bb) throws IOException {
         try {
             ByteBuffer nextMessage = outQueue.poll(WAITING_MESSAGE_TIMEOUT_IN_SEC, TimeUnit.SECONDS);
+            if (nextMessage == null) {
+                return 0;
+            }
             if(bb.limit() == MdpTCPMessageRequester.NUMBER_OF_SIZE_BYTES) {
                 bb.putChar((char)nextMessage.limit());
                 outQueue.add(nextMessage);

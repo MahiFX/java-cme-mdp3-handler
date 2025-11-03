@@ -31,7 +31,7 @@ public class SecurityStatusHandler {
     public void handle(final MdpMessage statusMessage, final short matchEventIndicator) {
         final int securityId = statusMessage.getInt32(48);
 
-        channelContext.notifySecurityStatus(securityId, statusMessage);
+        channelContext.channel.notifySecurityStatus(securityId, statusMessage);
 
         if (channelContext.hasMdListeners()) {
             statusMessage.getString(1151, secGroup);
@@ -41,7 +41,7 @@ public class SecurityStatusHandler {
             final HaltReason haltReason = HaltReason.fromFIX(statusMessage.getInt8(327));
             final SecurityTradingEvent securityTradingEvent = SecurityTradingEvent.fromFIX(statusMessage.getInt8(1174));
 
-            channelContext.notifySecurityStatus(secGroup, secAsset, securityId, tradeDate, matchEventIndicator,
+            channelContext.channel.notifySecurityStatus(secGroup, secAsset, securityId, tradeDate, matchEventIndicator,
                     securityTradingStatus, haltReason, securityTradingEvent);
         }
     }

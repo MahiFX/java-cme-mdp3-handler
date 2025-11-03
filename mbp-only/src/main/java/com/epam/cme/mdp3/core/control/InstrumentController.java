@@ -56,7 +56,7 @@ public class InstrumentController {
     private void init(final int subscriptionFlags) {
         mdHandler.setSubscriptionFlags(subscriptionFlags);
         this.channelContext.subscribeToSnapshotsForInstrument(securityId);
-        this.channelContext.notifyInstrumentStateListeners(this.securityId, this.secDesc, InstrumentState.NEW, InstrumentState.INITIAL);
+        this.channelContext.channel.notifyInstrumentStateListeners(this.securityId, this.secDesc, InstrumentState.NEW, InstrumentState.INITIAL);
     }
 
     public int getSubscriptionFlags() {
@@ -109,7 +109,7 @@ public class InstrumentController {
     }
 
     private void handleSnapshotFullRefreshEntries(final MdpFeedContext feedContext, final MdpMessage fullRefreshMsg) {
-        channelContext.notifySnapshotFullRefreshListeners(this.secDesc, fullRefreshMsg);
+        channelContext.channel.notifySnapshotFullRefreshListeners(this.secDesc, fullRefreshMsg);
         mdHandler.handleSnapshotFullRefreshEntries(feedContext, fullRefreshMsg);
     }
 
@@ -122,7 +122,7 @@ public class InstrumentController {
 
         if (rptSeqNum == expectedRptSeqNum) {
             this.processedRptSeqNum = rptSeqNum;
-            channelContext.notifyIncrementalRefreshListeners(
+            channelContext.channel.notifyIncrementalRefreshListeners(
                     matchEventIndicator, this.securityId, this.secDesc, incrQueueEntry.incrPcktSeqNum, incrGroupEntry);
             mdHandler.handleIncrementalRefreshEntry(incrQueueEntry.groupEntry, triggerTime, incrQueueEntry.transactTime);
         } else if (rptSeqNum > (expectedRptSeqNum + gapThreshold)) {
@@ -166,11 +166,11 @@ public class InstrumentController {
     }
 
     private void notifyAboutChangedState(final InstrumentState prevState, final InstrumentState newState) {
-        this.channelContext.notifyInstrumentStateListeners(this.securityId, this.secDesc, prevState, newState);
+        this.channelContext.channel.notifyInstrumentStateListeners(this.securityId, this.secDesc, prevState, newState);
     }
 
     private void handleIncrementalRefreshEntry(final long msgSeqNum, final short matchEventIndicator, final FieldSet incrRefreshEntry, long triggerTime, long transactTime) {
-        channelContext.notifyIncrementalRefreshListeners(matchEventIndicator, this.securityId, this.secDesc, msgSeqNum, incrRefreshEntry);
+        channelContext.channel.notifyIncrementalRefreshListeners(matchEventIndicator, this.securityId, this.secDesc, msgSeqNum, incrRefreshEntry);
         mdHandler.handleIncrementalRefreshEntry(incrRefreshEntry, triggerTime, transactTime);
     }
 

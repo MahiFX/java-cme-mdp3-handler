@@ -19,8 +19,8 @@ import com.epam.cme.mdp3.core.channel.MdpFeedContext;
 import com.epam.cme.mdp3.mktdata.enums.QuoteType;
 import com.epam.cme.mdp3.mktdata.enums.Side;
 import com.epam.cme.mdp3.sbe.message.SbeString;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RequestForQuoteHandler {
     private static final Logger logger = LoggerFactory.getLogger(RequestForQuoteHandler.class);
@@ -33,7 +33,7 @@ public class RequestForQuoteHandler {
 
     public void handle(final MdpFeedContext feedContext, final MdpMessage quoReqMessage) {
         logger.debug("R: {}", quoReqMessage);
-        channelContext.notifyRequestForQuote(quoReqMessage);
+        channelContext.channel.notifyRequestForQuote(quoReqMessage);
 
         if (channelContext.hasMdListeners()) {
             final MdpGroup quoReqGroup = feedContext.getMdpGroupObj();
@@ -46,7 +46,7 @@ public class RequestForQuoteHandler {
                 final int secId = quoReqGroup.getInt32(48);
                 final int orderQty = quoReqGroup.getInt32(38);
                 final Side side = Side.fromFIX(quoReqGroup.getInt8(54));
-                this.channelContext.notifyRequestForQuote(quoReqId, quoReqGroup.getEntryNum(), quoReqGroup.getNumInGroup(),
+                this.channelContext.channel.notifyRequestForQuote(quoReqId, quoReqGroup.getEntryNum(), quoReqGroup.getNumInGroup(),
                         secId, QuoteType.Tradable, orderQty, side);
             }
         }

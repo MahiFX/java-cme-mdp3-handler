@@ -21,7 +21,7 @@ public abstract class AbstractMktDataHandler {
     protected ChannelContext channelContext;
     protected int securityId;
     protected int subscriptionFlags;
-    private Lock lock = new ReentrantLock();
+    private final Lock lock = new ReentrantLock();
 
     public AbstractMktDataHandler(final ChannelContext channelContext, final int securityId, final int subscriptionFlags) {
         this.channelContext = channelContext;

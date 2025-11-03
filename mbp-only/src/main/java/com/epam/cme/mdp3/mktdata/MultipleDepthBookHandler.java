@@ -151,8 +151,8 @@ public class MultipleDepthBookHandler extends AbstractOrderBookHandler<OrderBook
     }
 
     public void commitEvent() {
-        if (subscribedToTop && refreshedTop) channelContext.notifyTopOfBookRefresh(this);
-        if (subscribedToEntireBook && refreshedBook) channelContext.notifyBookRefresh(this);
+        if (subscribedToTop && refreshedTop) channelContext.channel.notifyTopOfBookRefresh(this);
+        if (subscribedToEntireBook && refreshedBook) channelContext.channel.notifyBookRefresh(this);
         refreshedTop = false;
         refreshedBook = false;
     }

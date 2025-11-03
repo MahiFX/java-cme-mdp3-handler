@@ -20,9 +20,10 @@ import com.epam.cme.mdp3.sbe.message.SbeConstants;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+@SuppressWarnings("ForLoopReplaceableByForEach")
 public class IncrementalRefreshQueue {
-    private IncrementalRefreshHolder[] slots;
-    private int queueSize;
+    private final IncrementalRefreshHolder[] slots;
+    private final int queueSize;
     private long lastRptSeqNum = 0;
     private final SbeBuffer sbeBuffer = new SbeBufferImpl();
 
@@ -54,7 +55,7 @@ public class IncrementalRefreshQueue {
         final IncrementalRefreshHolder packetHolder = this.slots[pos];
         final boolean res = packetHolder.put(incrEntry, rptSeqNum);
         if (res) {
-            this.lastRptSeqNum = rptSeqNum > this.lastRptSeqNum ? rptSeqNum : this.lastRptSeqNum;
+            this.lastRptSeqNum = Math.max(rptSeqNum, this.lastRptSeqNum);
         }
         return res;
     }
@@ -77,7 +78,7 @@ public class IncrementalRefreshQueue {
         this.lastRptSeqNum = 0;
     }
 
-    final static class IncrementalRefreshQueueEntry {
+    public final static class IncrementalRefreshQueueEntry {
         MdpGroupEntry groupEntry;
         short matchEventIndicator;
         long incrPcktSeqNum;

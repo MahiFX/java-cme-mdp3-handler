@@ -167,8 +167,8 @@ public class ImpliedBookHandler extends AbstractOrderBookHandler<ImpliedBookPric
     }
 
     public void commitEvent() {
-        if (subscribedToTop && refreshedTop) channelContext.notifyImpliedTopOfBookRefresh(this);
-        if (subscribedToEntireBook && refreshedBook) channelContext.notifyImpliedBookRefresh(this);
+        if (subscribedToTop && refreshedTop) channelContext.channel.notifyImpliedTopOfBookRefresh(this);
+        if (subscribedToEntireBook && refreshedBook) channelContext.channel.notifyImpliedBookRefresh(this);
         refreshedTop = false;
         refreshedBook = false;
     }

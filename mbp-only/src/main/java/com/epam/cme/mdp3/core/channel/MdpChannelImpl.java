@@ -16,6 +16,13 @@ import com.epam.cme.mdp3.*;
 import com.epam.cme.mdp3.core.cfg.ChannelCfg;
 import com.epam.cme.mdp3.core.control.ChannelController;
 import com.epam.cme.mdp3.core.control.InstrumentController;
+import com.epam.cme.mdp3.core.control.InstrumentState;
+import com.epam.cme.mdp3.mktdata.ImpliedBook;
+import com.epam.cme.mdp3.mktdata.MdConstants;
+import com.epam.cme.mdp3.mktdata.OrderBook;
+import com.epam.cme.mdp3.mktdata.TradeSummary;
+import com.epam.cme.mdp3.mktdata.enums.*;
+import com.epam.cme.mdp3.sbe.message.SbeString;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,12 +44,12 @@ public class MdpChannelImpl implements MdpChannel {
     private final ScheduledExecutorService scheduledExecutorService;
     private int rcvBufSize = MdpFeedWorker.RCV_BUFFER_SIZE;
 
-    private MdpFeedWorker incrementalFeedA;
-    private MdpFeedWorker incrementalFeedB;
-    private MdpFeedWorker snapshotFeedA;
-    private MdpFeedWorker snapshotFeedB;
-    private MdpFeedWorker instrumentFeedA;
-    private MdpFeedWorker instrumentFeedB;
+    private volatile MdpFeedWorker incrementalFeedA;
+    private volatile MdpFeedWorker incrementalFeedB;
+    private volatile MdpFeedWorker snapshotFeedA;
+    private volatile MdpFeedWorker snapshotFeedB;
+    private volatile MdpFeedWorker instrumentFeedA;
+    private volatile MdpFeedWorker instrumentFeedB;
 
     private Thread incrementalFeedAThread;
     private Thread incrementalFeedBThread;
@@ -58,7 +65,7 @@ public class MdpChannelImpl implements MdpChannel {
     private String instrumentFeedAni;
     private String instrumentFeedBni;
 
-    private volatile Feed snptFeedToUse = Feed.A;
+    private final Feed snptFeedToUse = Feed.A;
 
     private final MdpFeedListener mdpFeedListener = new MdpFeelListenerImpl();
     final ChannelInstruments instruments;
@@ -74,13 +81,16 @@ public class MdpChannelImpl implements MdpChannel {
     private boolean allSecuritiesMode = false;
     private byte defMaxBookDepth = PLATFORM_DEFAULT_BOOK_DEPTH;
     public static final int PLATFORM_DEFAULT_IMPLIED_BOOK_DEPTH = 2;
-    private byte defImpliedBookDepth = PLATFORM_DEFAULT_IMPLIED_BOOK_DEPTH;
+    private final byte defImpliedBookDepth = PLATFORM_DEFAULT_IMPLIED_BOOK_DEPTH;
     private int defSubscriptionOptions = MdEventFlags.MESSAGE;
 
     private final ChannelController channelController;
-    private int queueSlotInitBufferSize = InstrumentController.DEF_QUEUE_SLOT_INIT_BUFFER_SIZE;
-    private int incrQueueSize = InstrumentController.DEF_INCR_QUEUE_SIZE;
-    private int gapThreshold = InstrumentController.DEF_GAP_THRESHOLD;
+    private final int queueSlotInitBufferSize;
+    private final int incrQueueSize;
+    private int gapThreshold;
+    private int listenerCount;
+    private int mdListenerCount;
+    private int tradeListenerCount;
 
     MdpChannelImpl(final ScheduledExecutorService scheduledExecutorService,
                    final ChannelCfg channelCfg,
@@ -95,7 +105,7 @@ public class MdpChannelImpl implements MdpChannel {
         this.instruments = new ChannelInstruments(this.channelContext);
         this.queueSlotInitBufferSize = queueSlotInitBufferSize;
         this.incrQueueSize = incrQueueSize;
-        this.channelController = new ChannelController(this.channelContext, this.incrQueueSize, this.queueSlotInitBufferSize);
+        this.channelController = new ChannelController(this.channelContext);
         if (scheduledExecutorService != null) initChannelStateThread();
     }
 
@@ -164,7 +174,7 @@ public class MdpChannelImpl implements MdpChannel {
             closeFeed(instrumentFeedAThread, instrumentFeedA);
             closeFeed(instrumentFeedBThread, instrumentFeedB);
         } catch (Exception e) {
-            logger.error("Failed to stop Feed Worker: " + e.getMessage(), e);
+            logger.error("Failed to stop Feed Worker: {}", e.getMessage(), e);
         }
         this.channelController.lock();
         try {
@@ -220,7 +230,7 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void initChannelStateThread() {
-        this.scheduledExecutorService.scheduleWithFixedDelay(() -> checkFeedIdleState(),
+        this.scheduledExecutorService.scheduleWithFixedDelay(this::checkFeedIdleState,
                 FEED_IDLE_CHECK_DELAY, FEED_IDLE_CHECK_DELAY, FEED_IDLE_CHECK_DELAY_UNIT);
     }
 
@@ -246,6 +256,7 @@ public class MdpChannelImpl implements MdpChannel {
         if (channelListener != null) {
             synchronized (listeners) {
                 listeners.add(channelListener);
+                listenerCount = listeners.size();
             }
         }
     }
@@ -255,6 +266,7 @@ public class MdpChannelImpl implements MdpChannel {
         if (channelListener != null) {
             synchronized (listeners) {
                 listeners.remove(channelListener);
+                listenerCount = listeners.size();
             }
         }
     }
@@ -263,6 +275,7 @@ public class MdpChannelImpl implements MdpChannel {
     public void registerMarketDataListener(final MarketDataListener mdListener) {
         synchronized (mdListeners) {
             mdListeners.add(mdListener);
+            mdListenerCount = mdListeners.size();
             setMdEnabledFlag();
         }
     }
@@ -272,6 +285,7 @@ public class MdpChannelImpl implements MdpChannel {
     public void removeMarketDataListener(final MarketDataListener mdListener) {
         synchronized (mdListeners) {
             mdListeners.remove(mdListener);
+            mdListenerCount = mdListeners.size();
             setMdEnabledFlag();
         }
     }
@@ -280,6 +294,7 @@ public class MdpChannelImpl implements MdpChannel {
     public void registerTradeListener(final TradeListener tradeListener) {
         synchronized (tradeListeners) {
             tradeListeners.add(tradeListener);
+            tradeListenerCount = tradeListeners.size();
         }
     }
 
@@ -287,6 +302,7 @@ public class MdpChannelImpl implements MdpChannel {
     public void removeTradeListener(final TradeListener tradeListener) {
         synchronized (tradeListeners) {
             tradeListeners.remove(tradeListener);
+            tradeListenerCount = tradeListeners.size();
         }
     }
 
@@ -480,7 +496,7 @@ public class MdpChannelImpl implements MdpChannel {
             startInstrumentFeedA();
             startIncrementalFeedB();
         } catch (MdpFeedException e) {
-            logger.error("Failed to start Instrument Feeds: " + e.getMessage(), e);
+            logger.error("Failed to start Instrument Feeds: {}", e.getMessage(), e);
         }
     }
 
@@ -498,7 +514,7 @@ public class MdpChannelImpl implements MdpChannel {
                 startSnapshotFeedB();
             }
         } catch (MdpFeedException e) {
-            logger.error("Failed to start Snapshot Feeds: " + e.getMessage(), e);
+            logger.error("Failed to start Snapshot Feeds: {}", e.getMessage(), e);
         }
     }
 
@@ -576,8 +592,10 @@ public class MdpChannelImpl implements MdpChannel {
     public void handlePacket(final MdpFeedContext feedContext, final MdpPacket mdpPacket, long packetRecvNanos) {
         final FeedType feedType = feedContext.getFeedType();
         final Feed feed = feedContext.getFeed();
-        logger.trace("New MDP Packet: #{} from Feed {}{}:", mdpPacket.getMsgSeqNum(), feedType, feed);
-        channelContext.notifyPacketReceived(feedType, feed, mdpPacket);
+        if (logger.isTraceEnabled()) {
+            logger.trace("New MDP Packet: #{} from Feed {}{}:", mdpPacket.getMsgSeqNum(), feedType, feed);
+        }
+        channelContext.channel.notifyPacketReceived(feedType, feed, mdpPacket);
         if (feedType == FeedType.N) {
             instruments.onPacket(feedContext, mdpPacket, packetRecvNanos);
         } else if (feedType == FeedType.I) {
@@ -599,16 +617,191 @@ public class MdpChannelImpl implements MdpChannel {
         this.rcvBufSize = rcvBufSize;
     }
 
+    public int notifySecurityDefinitionListeners(final MdpMessage mdpMessage) {
+        int flags = MdEventFlags.NOTHING;
+        final List<ChannelListener> listeners = getListeners();
+        final int listenerCount = this.listenerCount;
+        for (int i = 0; i < listenerCount; i++) {
+            final int clbFlags = listeners.get(i).onSecurityDefinition(getId(), mdpMessage);
+            flags |= clbFlags;
+        }
+        return flags;
+    }
+
+    public void notifyFeedStartedListeners(final FeedType feedType, final Feed feed) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onFeedStarted(getId(), feedType, feed);
+        }
+    }
+
+    public void notifyFeedStoppedListeners(final FeedType feedType, final Feed feed) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onFeedStopped(getId(), feedType, feed);
+        }
+    }
+
+    public void notifyImpliedBookRefresh(final ImpliedBook impliedBook) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onImpliedBookRefresh(getId(), impliedBook.getSecurityId(), impliedBook);
+        }
+    }
+
+    public void notifyImpliedBookFullRefresh(final ImpliedBook impliedBook) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < this.mdListenerCount; i++) {
+            mdListeners.get(i).onImpliedBookFullRefresh(getId(), impliedBook.getSecurityId(), impliedBook);
+        }
+    }
+
+    public void notifyImpliedTopOfBookRefresh(final ImpliedBook impliedBook) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < this.mdListenerCount; i++) {
+            mdListeners.get(i).onTopOfImpliedBookRefresh(getId(), impliedBook.getSecurityId(),
+                    impliedBook.getBid(com.epam.cme.mdp3.mktdata.MdConstants.TOP_OF_THE_BOOK_LEVEL), impliedBook.getOffer(MdConstants.TOP_OF_THE_BOOK_LEVEL));
+        }
+    }
+
+    public void notifyBookRefresh(final OrderBook orderBook) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < this.mdListenerCount; i++) {
+            mdListeners.get(i).onOrderBookRefresh(getId(), orderBook.getSecurityId(), orderBook);
+        }
+    }
+
+    public void notifyBookFullRefresh(final OrderBook orderBook) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onOrderBookFullRefresh(getId(), orderBook.getSecurityId(), orderBook);
+        }
+    }
+
+    public void notifySecurityStatus(final SbeString secGroup, final SbeString secAsset, final int securityId,
+                                     final int tradeDate, final short matchEventIndicator, final SecurityTradingStatus secTrdStatus,
+                                     final HaltReason haltRsn, final SecurityTradingEvent secTrdEvnt) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onSecurityStatus(getId(), secGroup, secAsset, securityId, tradeDate, matchEventIndicator,
+                    secTrdStatus, haltRsn, secTrdEvnt);
+        }
+    }
+
+    public void notifyRequestForQuote(final MdpMessage rfqMessage) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onRequestForQuote(getId(), rfqMessage);
+        }
+    }
+
+    public void notifyPacketReceived(final FeedType feedType, final Feed feed, final MdpPacket mdpPacket) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onPacket(getId(), feedType, feed, mdpPacket);
+        }
+    }
+
+    public void notifySecurityStatus(final int securityId, final MdpMessage secStatusMessage) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onSecurityStatus(getId(), securityId, secStatusMessage);
+        }
+    }
+
+    public void notifyRequestForQuote(final SbeString quoReqId, final int entryIdx, final int entryNum,
+                                      final int securityId, final QuoteType quoteType, final int orderQty, final Side side) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onRequestForQuote(getId(), quoReqId, entryIdx, entryNum, securityId, quoteType, orderQty, side);
+        }
+    }
+
+    public void notifyInstrumentStateListeners(final int securityId, final String secDesc, final InstrumentState prevState, final InstrumentState newState) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onInstrumentStateChanged(getId(), securityId, secDesc, prevState, newState);
+        }
+    }
+
+    public void notifyChannelStateListeners(final ChannelState prevState, final ChannelState newState) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onChannelStateChanged(getId(), prevState, newState);
+        }
+    }
+
+    public void notifyChannelResetFinishedListeners(final MdpMessage mdpMessage) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onFinishedChannelReset(getId(), mdpMessage);
+        }
+    }
+
+    public void notifyChannelResetListeners(final MdpMessage mdpMessage) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onBeforeChannelReset(getId(), mdpMessage);
+        }
+    }
+
+    public void notifySnapshotFullRefreshListeners(final String secDesc, final MdpMessage mdpMessage) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onSnapshotFullRefresh(getId(), secDesc, mdpMessage);
+        }
+    }
+
+    public void notifyIncrementalRefreshListeners(final short matchEventIndicator, final int securityId, final String secDesc, final long msgSeqNum, final FieldSet mdpGroupEntry) {
+        final List<ChannelListener> listeners = getListeners();
+        for (int i = 0; i < listenerCount; i++) {
+            listeners.get(i).onIncrementalRefresh(getId(), matchEventIndicator, securityId, secDesc, msgSeqNum, mdpGroupEntry);
+        }
+    }
+
+    public void notifyTopOfBookRefresh(final OrderBook orderBook) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onTopOfBookRefresh(getId(), orderBook.getSecurityId(),
+                    orderBook.getBid(MdConstants.TOP_OF_THE_BOOK_LEVEL), orderBook.getOffer(MdConstants.TOP_OF_THE_BOOK_LEVEL));
+        }
+    }
+
+    public void notifyEndOfIncrement(int securityId) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onEndOfIncrement(getId(), securityId);
+        }
+        final List<TradeListener> tradeListeners = getTradeListeners();
+        for (int i = 0; i < tradeListenerCount; i++) {
+            tradeListeners.get(i).onEndOfIncrement(getId(), securityId);
+        }
+    }
+
+    public void notifyEndOfSnapshot(int securityId) {
+        final List<MarketDataListener> mdListeners = getMdListeners();
+        for (int i = 0; i < mdListenerCount; i++) {
+            mdListeners.get(i).onEndOfSnapshot(getId(), securityId);
+        }
+    }
+
+    public void notifyTradeListeners(int securityId, TradeSummary summary) {
+        final List<TradeListener> tradeListeners = getTradeListeners();
+        for (int i = 0; i < tradeListenerCount; i++) {
+            tradeListeners.get(i).onTradeSummary(getId(), securityId, summary);
+        }
+    }
+
 
     private final class MdpFeelListenerImpl implements MdpFeedListener {
         @Override
         public void onFeedStarted(FeedType feedType, Feed feed) {
-            channelContext.notifyFeedStartedListeners(feedType, feed);
+            channelContext.channel.notifyFeedStartedListeners(feedType, feed);
         }
 
         @Override
         public void onFeedStopped(FeedType feedType, Feed feed) {
-            channelContext.notifyFeedStoppedListeners(feedType, feed);
+            channelContext.channel.notifyFeedStoppedListeners(feedType, feed);
         }
 
         @Override

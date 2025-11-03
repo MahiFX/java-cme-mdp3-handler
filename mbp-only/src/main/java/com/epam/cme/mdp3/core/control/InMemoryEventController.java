@@ -12,10 +12,13 @@
 
 package com.epam.cme.mdp3.core.control;
 
+import java.util.Arrays;
+
 /**
  * This class keeps the securities in the in-memory array.
  * The array is created with initial capacity and increased in case of overflow.
  */
+@SuppressWarnings("ForLoopReplaceableByForEach")
 public class InMemoryEventController implements EventController {
     private final static int INITIAL_LOG_SIZE = 64;
     private final static int INCREMENT_LOG_SIZE = 32;
@@ -51,16 +54,12 @@ public class InMemoryEventController implements EventController {
 
     @Override
     public void reset() {
-        for (int i = 0; i < logContainer.length; i++) {
-            logContainer[i] = 0;
-        }
+        Arrays.fill(logContainer, 0);
     }
 
     private void resizeLogContainer() {
         final int[] newLogContainer = new int[logContainer.length + INCREMENT_LOG_SIZE];
-        for (int i = 0; i < logContainer.length; i++) {
-            newLogContainer[i] = logContainer[i];
-        }
+        System.arraycopy(logContainer, 0, newLogContainer, 0, logContainer.length);
         logContainer = newLogContainer;
     }
 }
