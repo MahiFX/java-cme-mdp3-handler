@@ -343,8 +343,13 @@ public class MdpChannelImpl implements MdpChannel {
             if (!incrementalFeedA.isActive()) {
                 incrementalFeedAThread = new Thread(incrementalFeedA);
                 incrementalFeedAThread.start();
+                scheduleStats(incrementalFeedA);
             }
         }
+    }
+
+    private void scheduleStats(MdpFeedWorker feedWorker) {
+        scheduledExecutorService.scheduleAtFixedRate(feedWorker::printStats, 60, 60, TimeUnit.SECONDS);
     }
 
     @Override
@@ -361,6 +366,7 @@ public class MdpChannelImpl implements MdpChannel {
             if (!incrementalFeedB.isActive()) {
                 incrementalFeedBThread = new Thread(incrementalFeedB);
                 incrementalFeedBThread.start();
+                scheduleStats(incrementalFeedB);
             }
         }
     }
@@ -379,6 +385,7 @@ public class MdpChannelImpl implements MdpChannel {
             if (!snapshotFeedA.isActive()) {
                 snapshotFeedAThread = new Thread(snapshotFeedA);
                 snapshotFeedAThread.start();
+                scheduleStats(snapshotFeedA);
             }
         }
     }
@@ -397,6 +404,7 @@ public class MdpChannelImpl implements MdpChannel {
             if (!snapshotFeedB.isActive()) {
                 snapshotFeedBThread = new Thread(snapshotFeedB);
                 snapshotFeedBThread.start();
+                scheduleStats(snapshotFeedB);
             }
         }
     }
@@ -415,6 +423,7 @@ public class MdpChannelImpl implements MdpChannel {
             if (!instrumentFeedA.isActive()) {
                 instrumentFeedAThread = new Thread(instrumentFeedA);
                 instrumentFeedAThread.start();
+                scheduleStats(instrumentFeedA);
             }
         }
     }
@@ -433,6 +442,7 @@ public class MdpChannelImpl implements MdpChannel {
             if (!instrumentFeedB.isActive()) {
                 instrumentFeedBThread = new Thread(instrumentFeedB);
                 instrumentFeedBThread.start();
+                scheduleStats(instrumentFeedB);
             }
         }
     }

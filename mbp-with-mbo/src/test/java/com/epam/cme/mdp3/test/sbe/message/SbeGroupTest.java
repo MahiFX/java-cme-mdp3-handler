@@ -38,7 +38,7 @@ public class SbeGroupTest {
     }
 
     @Test
-    public void groupEntryByEntryNum(){
+    public void groupEntryByEntryNum() {
         MdpPacket packet = new MdpPacket();
         MdpGroup mdpGroup = SbeGroup.instance();
         MdpGroupEntry groupEntry = SbeGroupEntry.instance();

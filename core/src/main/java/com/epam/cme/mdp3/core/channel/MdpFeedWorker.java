@@ -26,10 +26,12 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.MembershipKey;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
@@ -40,8 +42,8 @@ public class MdpFeedWorker implements Runnable {
     public static final int RCV_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
 
     private final ConnectionCfg cfg;
-    private String networkInterface = null;
-    private int rcvBufSize = RCV_BUFFER_SIZE;
+    private final String networkInterface;
+    private final int rcvBufSize;
     private final List<MdpFeedListener> listeners = new ArrayList<>();
     private DatagramChannel multicastChannel;
     private MembershipKey membershipKey;
@@ -50,16 +52,19 @@ public class MdpFeedWorker implements Runnable {
     private MdpFeedContext feedContext;
     private final AtomicReference<MdpFeedRtmState> feedState = new AtomicReference<>(STOPPED);
     private int listenerCount;
+    private final DutyCycleCalculator dutyCycleCalculator;
+
+    private final AtomicLong totalDutyTime = new AtomicLong(Long.MIN_VALUE); // Start at max negative to avoid wraps from collecting nanos
 
     public MdpFeedWorker(final ConnectionCfg cfg) throws MdpFeedException {
-        this.cfg = cfg;
-        init();
+        this(cfg, null, RCV_BUFFER_SIZE);
     }
 
     public MdpFeedWorker(final ConnectionCfg cfg, final String networkInterface, final int rcvBufSize) throws MdpFeedException {
         this.cfg = cfg;
         this.networkInterface = networkInterface;
         this.rcvBufSize = rcvBufSize;
+        this.dutyCycleCalculator = new DutyCycleCalculator(totalDutyTime, TimeUnit.NANOSECONDS);
         init();
     }
 
@@ -147,11 +152,13 @@ public class MdpFeedWorker implements Runnable {
         mdpPacket.wrapFromBuffer(byteBuffer);
         // work while any thread really started shutdown and did not cancel it in time
         while (!this.feedState.compareAndSet(PENDING_SHUTDOWN, SHUTDOWN)) {
+            long startLoopNanos = System.nanoTime();
             try {
                 select(byteBuffer, mdpPacket);
             } catch (Exception e) {
                 logger.error("Exception in message loop", e);
             }
+            totalDutyTime.addAndGet(System.nanoTime() - startLoopNanos);
         }
         try {
             close();
@@ -163,6 +170,18 @@ public class MdpFeedWorker implements Runnable {
             logger.error("Failed to stop Feed", e);
         }
         logger.debug("Stop message loop in {}", cfg.toString());
+    }
+
+
+    private final NumberFormat percentFormatter = NumberFormat.getPercentInstance();
+
+    {
+        percentFormatter.setMinimumFractionDigits(2);
+        percentFormatter.setMaximumFractionDigits(2);
+    }
+
+    public void printStats() {
+        logger.info("Feed {} {} {} stats: duty cycle: {}", cfg.getId(), cfg.getFeedType(), cfg.getFeed(), percentFormatter.format(dutyCycleCalculator.getAsDouble() * 100));
     }
 
     private void select(final ByteBuffer byteBuffer, final MdpPacket mdpPacket) throws IOException {

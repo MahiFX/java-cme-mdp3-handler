@@ -52,8 +52,10 @@ public class IncrementalRefreshPerfTest {
 
                         @Override
                         public void onIncrementalMBPRefresh(MdpMessage mdpMessage, String channelId, int securityId, String secDesc, long msgSeqNum, FieldSet mdEntry){
-                            short matchEventIndicator = mdEntry.getUInt8(5799);
-                            printMBPEntity(channelId, matchEventIndicator, securityId, secDesc, msgSeqNum, mdEntry, print);
+                            if (mdEntry != null) {
+                                short matchEventIndicator = mdpMessage.getUInt8(5799);
+                                printMBPEntity(channelId, matchEventIndicator, securityId, secDesc, msgSeqNum, mdEntry, print);
+                            }
                         }
 
                         @Override

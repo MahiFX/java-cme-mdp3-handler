@@ -1,7 +1,10 @@
 package com.epam.cme.mdp3.test.control;
 
 import com.epam.cme.mdp3.*;
-import com.epam.cme.mdp3.control.*;
+import com.epam.cme.mdp3.control.ChannelController;
+import com.epam.cme.mdp3.control.ChannelControllerRouter;
+import com.epam.cme.mdp3.control.InstrumentManager;
+import com.epam.cme.mdp3.control.MdpInstrumentManager;
 import com.epam.cme.mdp3.core.channel.MdpFeedContext;
 import com.epam.cme.mdp3.sbe.message.SbeConstants;
 import com.epam.cme.mdp3.sbe.schema.MdpMessageTypes;
@@ -23,13 +26,13 @@ import static org.junit.Assert.*;
 
 
 public class MBOChannelControllerRouterTest {
-    private TestChannelListener testListener = new TestChannelListener();
-    private String channelId = "648";
-    private int testSecurityId = 99;
+    private final TestChannelListener testListener = new TestChannelListener();
+    private final String channelId = "648";
+    private final int testSecurityId = 99;
     private ChannelController channelController;
-    private String secDesc = "for test";
+    private final String secDesc = "for test";
     private InstrumentManager instrumentManager;
-    private TestInstrumentObserver instrumentObserver = new TestInstrumentObserver(channelId);
+    private final TestInstrumentObserver instrumentObserver = new TestInstrumentObserver(channelId);
 
     @Before
     public void init() throws Exception {
@@ -69,7 +72,7 @@ public class MBOChannelControllerRouterTest {
         long orderID = 1;
         long mDOrderPriority = 2;
         short mDUpdateAction = 0;
-        byte mDEntryType = (byte)48;
+        byte mDEntryType = (byte) 48;
         int mDDisplayQty = 5;
         int mDEntryPx = 10;
         ByteBuffer mboIncrementTestMessage = ModelUtils.getMBOIncrementTestMessage(1, testSecurityId, orderID, mDOrderPriority, mDUpdateAction, mDEntryType, mDDisplayQty, mDEntryPx);
@@ -98,7 +101,7 @@ public class MBOChannelControllerRouterTest {
         ByteBuffer instrumentDefinitionTestMessage = ModelUtils.getMDInstrumentDefinitionFuture27(1, testSecurityId);
         mdpPacketWithInstrumentDefinition.wrapFromBuffer(instrumentDefinitionTestMessage);
         channelController.handleIncrementalPacket(incrementContext, mdpPacketWithInstrumentDefinition);
-        Pair<String,MdpMessage> securityMessagePair = instrumentObserver.nextSecurityMessage();
+        Pair<String, MdpMessage> securityMessagePair = instrumentObserver.nextSecurityMessage();
         assertNotNull(securityMessagePair);
         assertEquals(channelId, securityMessagePair.getLeft());
         assertEquals(SemanticMsgType.SecurityDefinition, securityMessagePair.getRight().getSemanticMsgType());
@@ -181,14 +184,14 @@ public class MBOChannelControllerRouterTest {
         assertNull(testListener.nextMBPIncrementMessage());
     }
 
-    private void checkMBOIncrementalRefreshEntity(TestChannelListener.IncrementalRefreshEntity incrementalMBORefreshEntity, short ref){
+    private void checkMBOIncrementalRefreshEntity(TestChannelListener.IncrementalRefreshEntity incrementalMBORefreshEntity, short ref) {
         assertNotNull(incrementalMBORefreshEntity);
         FieldSet orderIDEntry = incrementalMBORefreshEntity.getOrderIDEntry();
         assertNotNull(orderIDEntry);
         assertEquals(ref, orderIDEntry.getUInt8(REFERENCE_ID));
     }
 
-    private void checkMBPIncrementalRefreshEntity(TestChannelListener.IncrementalRefreshEntity incrementalMBPRefreshEntity, int secId){
+    private void checkMBPIncrementalRefreshEntity(TestChannelListener.IncrementalRefreshEntity incrementalMBPRefreshEntity, int secId) {
         assertNotNull(incrementalMBPRefreshEntity);
         FieldSet mdEntry = incrementalMBPRefreshEntity.getMdEntry();
         assertNotNull(mdEntry);
