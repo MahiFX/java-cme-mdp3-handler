@@ -152,13 +152,11 @@ public class MdpFeedWorker implements Runnable {
         mdpPacket.wrapFromBuffer(byteBuffer);
         // work while any thread really started shutdown and did not cancel it in time
         while (!this.feedState.compareAndSet(PENDING_SHUTDOWN, SHUTDOWN)) {
-            long startLoopNanos = System.nanoTime();
             try {
                 select(byteBuffer, mdpPacket);
             } catch (Exception e) {
                 logger.error("Exception in message loop", e);
             }
-            totalDutyTime.addAndGet(System.nanoTime() - startLoopNanos);
         }
         try {
             close();
@@ -186,6 +184,7 @@ public class MdpFeedWorker implements Runnable {
 
     private void select(final ByteBuffer byteBuffer, final MdpPacket mdpPacket) throws IOException {
         if (selector.isOpen() && selector.select() > 0) {
+            long startLoopNanos = System.nanoTime();
             Iterator<?> selectedKeys = selector.selectedKeys().iterator();
             while (selectedKeys.hasNext()) {
                 final SelectionKey key = (SelectionKey) selectedKeys.next();
@@ -195,6 +194,7 @@ public class MdpFeedWorker implements Runnable {
                     receiveMessageAndNotifySubscribers(byteBuffer, mdpPacket);
                 }
             }
+            totalDutyTime.addAndGet(System.nanoTime() - startLoopNanos);
         }
     }
 
