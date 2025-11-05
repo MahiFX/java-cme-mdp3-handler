@@ -10,12 +10,13 @@ public class DutyCycleCalculator implements DoubleSupplier {
 
 
     private long lastTime = System.currentTimeMillis();
-    private long lastTotalCaptureLatency = 0;
+    private long lastTotalCaptureLatency;
 
 
     public DutyCycleCalculator(AtomicLong totalDutyTime, TimeUnit unit) {
         this.totalDutyTime = totalDutyTime;
         this.unit = unit;
+        this.lastTotalCaptureLatency = totalDutyTime.get();
     }
 
     @Override

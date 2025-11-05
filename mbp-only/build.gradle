@@ -6,7 +6,7 @@ plugins {
     id "maven-publish"
 }
 group = 'com.epam.cme'
-version = '2.1.5-MAHI23'
+version = '2.1.5-MAHI24'
 
 java {
     toolchain {
