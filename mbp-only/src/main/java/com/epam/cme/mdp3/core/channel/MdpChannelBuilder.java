@@ -25,6 +25,7 @@ import com.epam.cme.mdp3.service.DefaultScheduledServiceHolder;
 import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 
+@SuppressWarnings("unused")
 public class MdpChannelBuilder {
     private final String channelId;
     private URI cfgURI;
@@ -39,7 +40,7 @@ public class MdpChannelBuilder {
     private String instrumentFeedBni;
 
     private ChannelListener channelListener;
-    private boolean noScheduler = false;
+    private boolean noFeedIdleControl = false;
     private ScheduledExecutorService scheduler;
 
     private int queueSlotInitBufferSize = InstrumentController.DEF_QUEUE_SLOT_INIT_BUFFER_SIZE;
@@ -122,7 +123,7 @@ public class MdpChannelBuilder {
     }
 
     public MdpChannelBuilder noFeedIdleControl() {
-        this.noScheduler = true;
+        this.noFeedIdleControl = true;
         return this;
     }
 
@@ -133,10 +134,10 @@ public class MdpChannelBuilder {
 
             MdpChannelImpl mdpChannel;
 
-            if (!noScheduler && scheduler != null) {
+            if (scheduler == null) {
                 scheduler = DefaultScheduledServiceHolder.getScheduler();
             }
-            mdpChannel = new MdpChannelImpl(scheduler, cfg.getChannel(this.channelId), mdpMessageTypes, queueSlotInitBufferSize, incrQueueSize, gapThreshold);
+            mdpChannel = new MdpChannelImpl(scheduler, cfg.getChannel(this.channelId), mdpMessageTypes, queueSlotInitBufferSize, incrQueueSize, gapThreshold, noFeedIdleControl);
 
             mdpChannel.setIncrementalFeedAni(this.incrementalFeedAni);
             mdpChannel.setIncrementalFeedBni(this.incrementalFeedBni);

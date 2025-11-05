@@ -97,7 +97,7 @@ public class MdpChannelImpl implements MdpChannel {
                    final MdpMessageTypes mdpMessageTypes,
                    final int queueSlotInitBufferSize,
                    final int incrQueueSize,
-                   final int gapThreshold) {
+                   final int gapThreshold, boolean noFeedIdleControl) {
         this.scheduledExecutorService = scheduledExecutorService;
         this.channelCfg = channelCfg;
         this.gapThreshold = gapThreshold;
@@ -106,7 +106,7 @@ public class MdpChannelImpl implements MdpChannel {
         this.queueSlotInitBufferSize = queueSlotInitBufferSize;
         this.incrQueueSize = incrQueueSize;
         this.channelController = new ChannelController(this.channelContext);
-        if (scheduledExecutorService != null) initChannelStateThread();
+        if (!noFeedIdleControl) initChannelStateThread();
     }
 
     @Override
