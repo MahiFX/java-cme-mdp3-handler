@@ -16,7 +16,10 @@ public class DutyCycleCalculator implements DoubleSupplier {
     public DutyCycleCalculator(AtomicLong totalDutyTime, TimeUnit unit) {
         this.totalDutyTime = totalDutyTime;
         this.unit = unit;
-        this.lastTotalCaptureLatency = totalDutyTime.get();
+        // Must use the SAME unit conversion as getAsDouble(): storing the raw value here while comparing
+        // against millis there made the first captureTime delta explode (by ~1e6, or by the sentinel
+        // start value of totalDutyTime) and produced absurd duty-cycle percentages.
+        this.lastTotalCaptureLatency = unit.toMillis(totalDutyTime.get());
     }
 
     @Override
