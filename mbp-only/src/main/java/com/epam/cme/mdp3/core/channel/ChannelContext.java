@@ -65,6 +65,10 @@ public class ChannelContext {
         channel.stopInstrumentFeedB();
     }
 
+    public void notifyChannelStateListeners(final ChannelState prevState, final ChannelState newState) {
+        channel.notifyChannelStateListeners(prevState, newState);
+    }
+
     public void stopSnapshotFeeds() {
         channel.stopSnapshotFeeds();
     }
