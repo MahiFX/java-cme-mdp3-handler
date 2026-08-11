@@ -100,7 +100,7 @@ public class ChannelController {
 
     public void switchState(final ChannelState prevState, final ChannelState newState) {
         this.state = newState;
-        channelContext.channel.notifyChannelStateListeners(prevState, newState);
+        channelContext.notifyChannelStateListeners(prevState, newState);
     }
 
 
@@ -258,6 +258,14 @@ public class ChannelController {
     public boolean removeOutOfSyncInstrument(final Integer instrumentId) {
         boolean result = this.outOfSyncInstruments.remove(instrumentId);
         outOfSyncInstrumentCount = outOfSyncInstruments.size();
+        if (result && !hasOutOfSyncInstruments() && this.state == ChannelState.INITIAL) {
+            // Recovery is finished: every instrument that needed a snapshot has had one. Say so here as well
+            // as in stopSnapshotListening(), because the two are alternative ends to the same phase and only
+            // that one used to promote the state. A channel whose instruments all recovered individually --
+            // rather than while a sequence-1 snapshot packet happened to be in flight -- stayed INITIAL for
+            // the rest of the session, reporting an unhealthy market that was in fact publishing normally.
+            switchState(this.state, ChannelState.SYNC);
+        }
         return result;
     }
 
