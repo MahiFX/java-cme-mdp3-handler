@@ -30,7 +30,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class MdpChannelImpl implements MdpChannel {
@@ -39,9 +41,15 @@ public class MdpChannelImpl implements MdpChannel {
     private static final int FEED_IDLE_CHECK_DELAY = 100;
     private static final TimeUnit FEED_IDLE_CHECK_DELAY_UNIT = TimeUnit.SECONDS;
     private static final int PLATFORM_DEFAULT_BOOK_DEPTH = 10; // do we need an external option?
+    private static final long FEED_CLOSE_TIMEOUT_MILLIS = 5_000;
+    private static final long FEED_CLOSE_POLL_MILLIS = 10;
 
     final ChannelCfg channelCfg;
     private final ScheduledExecutorService scheduledExecutorService;
+    // The scheduler is supplied and usually outlives this channel, so close() cancels what the channel put on it.
+    private final List<ScheduledFuture<?>> scheduledTasks = new CopyOnWriteArrayList<>();
+    // Raised first in close(): feed starts are refused from then on, and a stats task registered concurrently cancels itself.
+    private volatile boolean closing;
     private int rcvBufSize = MdpFeedWorker.RCV_BUFFER_SIZE;
 
     private volatile MdpFeedWorker incrementalFeedA;
@@ -151,8 +159,26 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void closeFeed(final Thread thread, final MdpFeedWorker feedWorker) throws IOException, InterruptedException {
-        if (thread != null && thread.isAlive()) {
-            thread.join();
+        if (feedWorker != null) {
+            // Stops for good a thread started but not yet run, which would otherwise activate after this close.
+            feedWorker.terminate();
+        }
+        if (thread != null) {
+            // A worker only accepts shutdown once its own thread has marked it ACTIVE, so a feed started a moment ago
+            // may have ignored stopAllFeeds(). Keep asking while joining, with a bound, instead of joining for ever.
+            final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(FEED_CLOSE_TIMEOUT_MILLIS);
+            while (thread.isAlive() && System.nanoTime() < deadline) {
+                feedWorker.shutdown();
+                thread.join(FEED_CLOSE_POLL_MILLIS);
+            }
+            if (thread.isAlive()) {
+                // Still running, possibly inside open() assigning the very fields close() releases: leave it alone.
+                logger.warn("Feed worker {} did not stop within {}ms of close", thread.getName(), FEED_CLOSE_TIMEOUT_MILLIS);
+                return;
+            }
+        }
+        if (feedWorker != null) {
+            // Also releases a worker whose thread already exited, such as one whose open() failed.
             feedWorker.close();
         }
     }
@@ -165,7 +191,13 @@ public class MdpChannelImpl implements MdpChannel {
         } finally {
             this.channelController.unlock();
         }
+        // Set before cancelling: a task registered concurrently is either in the list this loop reads, or sees the
+        // flag in scheduleStats() and cancels itself.
+        closing = true;
         stopAllFeeds();
+        for (ScheduledFuture<?> task : scheduledTasks) {
+            task.cancel(false);
+        }
         try {
             closeFeed(incrementalFeedAThread, incrementalFeedA);
             closeFeed(incrementalFeedBThread, incrementalFeedB);
@@ -230,8 +262,8 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void initChannelStateThread() {
-        this.scheduledExecutorService.scheduleWithFixedDelay(this::checkFeedIdleState,
-                FEED_IDLE_CHECK_DELAY, FEED_IDLE_CHECK_DELAY, FEED_IDLE_CHECK_DELAY_UNIT);
+        scheduledTasks.add(this.scheduledExecutorService.scheduleWithFixedDelay(this::checkFeedIdleState,
+                FEED_IDLE_CHECK_DELAY, FEED_IDLE_CHECK_DELAY, FEED_IDLE_CHECK_DELAY_UNIT));
     }
 
     private void checkFeedIdleState() {
@@ -331,6 +363,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startIncrementalFeedA() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (incrementalFeedA == null) {
             synchronized (this) {
                 if (incrementalFeedA == null) {
@@ -349,11 +384,18 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void scheduleStats(MdpFeedWorker feedWorker) {
-        scheduledExecutorService.scheduleAtFixedRate(feedWorker::printStats, 60, 60, TimeUnit.SECONDS);
+        final ScheduledFuture<?> task = scheduledExecutorService.scheduleAtFixedRate(feedWorker::printStats, 60, 60, TimeUnit.SECONDS);
+        scheduledTasks.add(task);
+        if (closing) {
+            task.cancel(false);
+        }
     }
 
     @Override
     public void startIncrementalFeedB() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (incrementalFeedB == null) {
             synchronized (this) {
                 if (incrementalFeedB == null) {
@@ -373,6 +415,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startSnapshotFeedA() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (snapshotFeedA == null) {
             synchronized (this) {
                 if (snapshotFeedA == null) {
@@ -392,6 +437,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startSnapshotFeedB() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (snapshotFeedB == null) {
             synchronized (this) {
                 if (snapshotFeedB == null) {
@@ -411,6 +459,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startInstrumentFeedA() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (instrumentFeedA == null) {
             synchronized (this) {
                 if (instrumentFeedA == null) {
@@ -430,6 +481,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startInstrumentFeedB() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (instrumentFeedB == null) {
             synchronized (this) {
                 if (instrumentFeedB == null) {

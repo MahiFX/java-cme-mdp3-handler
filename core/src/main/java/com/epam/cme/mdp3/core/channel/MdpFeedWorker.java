@@ -47,6 +47,7 @@ public class MdpFeedWorker implements Runnable {
     private final List<MdpFeedListener> listeners = new ArrayList<>();
     private DatagramChannel multicastChannel;
     private MembershipKey membershipKey;
+    private volatile boolean terminated;
     private Selector selector;
     private NetworkInterface ni;
     private MdpFeedContext feedContext;
@@ -115,16 +116,26 @@ public class MdpFeedWorker implements Runnable {
         }
     }
 
+    /** Releases whatever open() managed to allocate; safe on a worker that never opened or failed part-way. */
     public void close() throws IOException {
-        if (selector.isOpen()) selector.close();
-        if (this.membershipKey.isValid()) this.membershipKey.drop();
-        if (this.multicastChannel.isOpen()) {
+        if (selector != null && selector.isOpen()) selector.close();
+        if (this.membershipKey != null && this.membershipKey.isValid()) this.membershipKey.drop();
+        if (this.multicastChannel != null && this.multicastChannel.isOpen()) {
             this.multicastChannel.close();
         }
     }
 
     public boolean isRunnable() {
         return this.feedState.compareAndSet(STOPPED, ACTIVE);
+    }
+
+    /**
+     * Stops this worker for good, including a thread that has been started but not yet run: shutdown() is ignored
+     * until the worker is ACTIVE, so without this a late thread could still activate and open after its channel closed.
+     */
+    public void terminate() {
+        this.terminated = true;
+        shutdown();
     }
 
     @Override
@@ -140,10 +151,24 @@ public class MdpFeedWorker implements Runnable {
         if (!isRunnable()) {
             return;
         }
+        // Checked after activating: a terminate() before this point is seen here, and one after it finds the worker
+        // ACTIVE, where its shutdown() takes effect.
+        if (terminated) {
+            this.feedState.set(STOPPED);
+            return;
+        }
         try {
             open();
         } catch (Exception e) {
             logger.error("Failed to open Feed", e);
+            // open() can fail after allocating the socket and selector, and no thread is left to run this worker,
+            // so release them and return to STOPPED rather than staying ACTIVE with nothing behind it.
+            try {
+                close();
+            } catch (IOException closeFailure) {
+                logger.error("Failed to release a feed that did not open", closeFailure);
+            }
+            this.feedState.set(STOPPED);
             return;
         }
         notifyStarted();
@@ -241,8 +266,9 @@ public class MdpFeedWorker implements Runnable {
         return this.feedState.get() == PENDING_SHUTDOWN || this.feedState.get() == SHUTDOWN;
     }
 
+    /** Refused once terminated, so a late start request cannot bring a closed channel's worker back. */
     public boolean cancelShutdownIfStarted() {
-        return this.feedState.compareAndSet(PENDING_SHUTDOWN, ACTIVE);
+        return !terminated && this.feedState.compareAndSet(PENDING_SHUTDOWN, ACTIVE);
     }
 
     public boolean shutdown() {
