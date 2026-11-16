@@ -86,13 +86,18 @@ public class ChannelInstruments implements MdpFeedListener {
     public void onPacket(final MdpFeedContext feedContext, final MdpPacket instrumentPacket, long packetRecvNanos) {
         final Iterator<MdpMessage> mdpMessageIterator = instrumentPacket.iterator();
         MdpMessage mdpMessage;
+        final MdpMessageType[] messageTypes = channelContext.getMdpMessageTypes().getMessageTypes();
         while (mdpMessageIterator.hasNext()) {
             mdpMessage = mdpMessageIterator.next();
-            final MdpMessageType messageType = channelContext.getMdpMessageTypes().getMessageType(mdpMessage.getSchemaId());
-            final SemanticMsgType semanticMsgType = messageType.getSemanticMsgType();
-            if (semanticMsgType == SemanticMsgType.SecurityDefinition) {
-                mdpMessage.setMessageType(messageType);
+            final int templateId = mdpMessage.getSchemaId();
+            final MdpMessageType messageType = templateId < messageTypes.length ? messageTypes[templateId] : null;
+            // Only a definition carries the metadata its listeners and onMessage read. Anything else on this
+            // feed, or a template the schema does not know, would throw on its first field read, drop the rest
+            // of the packet and stop the instrument cycle counting down.
+            if (messageType == null || messageType.getSemanticMsgType() != SemanticMsgType.SecurityDefinition) {
+                continue;
             }
+            mdpMessage.setMessageType(messageType);
             onMessage(feedContext, mdpMessage);
         }
     }
