@@ -166,7 +166,9 @@ public class MdpChannelImpl implements MdpChannel {
                 thread.join(FEED_CLOSE_POLL_MILLIS);
             }
             if (thread.isAlive()) {
+                // Still running, possibly inside open() assigning the very fields close() releases: leave it alone.
                 logger.warn("Feed worker {} did not stop within {}ms of close", thread.getName(), FEED_CLOSE_TIMEOUT_MILLIS);
+                return;
             }
         }
         if (feedWorker != null) {
