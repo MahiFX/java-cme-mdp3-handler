@@ -41,6 +41,8 @@ public class MdpChannelImpl implements MdpChannel {
     private static final int FEED_IDLE_CHECK_DELAY = 100;
     private static final TimeUnit FEED_IDLE_CHECK_DELAY_UNIT = TimeUnit.SECONDS;
     private static final int PLATFORM_DEFAULT_BOOK_DEPTH = 10; // do we need an external option?
+    private static final long FEED_CLOSE_TIMEOUT_MILLIS = 5_000;
+    private static final long FEED_CLOSE_POLL_MILLIS = 10;
 
     final ChannelCfg channelCfg;
     private final ScheduledExecutorService scheduledExecutorService;
@@ -155,8 +157,20 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void closeFeed(final Thread thread, final MdpFeedWorker feedWorker) throws IOException, InterruptedException {
-        if (thread != null && thread.isAlive()) {
-            thread.join();
+        if (thread != null) {
+            // A worker only accepts shutdown once its own thread has marked it ACTIVE, so a feed started a moment ago
+            // may have ignored stopAllFeeds(). Keep asking while joining, with a bound, instead of joining for ever.
+            final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(FEED_CLOSE_TIMEOUT_MILLIS);
+            while (thread.isAlive() && System.nanoTime() < deadline) {
+                feedWorker.shutdown();
+                thread.join(FEED_CLOSE_POLL_MILLIS);
+            }
+            if (thread.isAlive()) {
+                logger.warn("Feed worker {} did not stop within {}ms of close", thread.getName(), FEED_CLOSE_TIMEOUT_MILLIS);
+            }
+        }
+        if (feedWorker != null) {
+            // Also releases a worker whose thread already exited, such as one whose open() failed.
             feedWorker.close();
         }
     }

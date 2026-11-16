@@ -1,17 +1,12 @@
 package com.epam.cme.mdp3.core.channel;
 
-import com.epam.cme.mdp3.Feed;
-import com.epam.cme.mdp3.FeedType;
 import com.epam.cme.mdp3.MdpChannel;
-import com.epam.cme.mdp3.VoidChannelListener;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.net.URI;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -42,6 +37,20 @@ public class MdpChannelCloseCancelsTasksTest {
         return new MdpChannelBuilder("901", config, schema).usingScheduler(scheduler).build();
     }
 
+    /**
+     * A worker only accepts shutdown once its own thread has marked it ACTIVE. Closing a channel in the moment between
+     * starting a feed and that thread getting going used to skip the shutdown and then join the thread for ever, while
+     * the feed ran on. Repeated so the window is hit; the timeout turns a hang into a failure.
+     */
+    @Test(timeout = 30_000)
+    public void closeStraightAfterStartingAFeedDoesNotHang() throws Exception {
+        for (int i = 0; i < 50; i++) {
+            final MdpChannel channel = channel();
+            channel.startIncrementalFeedA();
+            channel.close();
+        }
+    }
+
     @Test
     public void closeCancelsTheIdleCheck() throws Exception {
         final MdpChannel channel = channel();
@@ -54,26 +63,12 @@ public class MdpChannelCloseCancelsTasksTest {
 
     @Test
     public void closeCancelsTheStatisticsTaskOfEveryStartedFeed() throws Exception {
-        final CountDownLatch feedsSettled = new CountDownLatch(2);
-        final MdpChannel channel = new MdpChannelBuilder("901", getClass().getResource("/config.xml").toURI(),
-                getClass().getResource("/templates_FixBinary.xml").toURI())
-                .usingScheduler(scheduler)
-                .usingListener(new VoidChannelListener() {
-                    @Override
-                    public void onFeedStarted(final String channelId, final FeedType feedType, final Feed feed) {
-                        feedsSettled.countDown();
-                    }
-                })
-                .build();
+        final MdpChannel channel = channel();
         // The test config carries feeds A and B for the incremental feed only; every feed type schedules the same way.
         channel.startIncrementalFeedA();
         channel.startIncrementalFeedB();
         assertEquals("idle check plus one statistics task per started feed", 3, scheduler.getQueue().size());
 
-        // A worker only accepts shutdown once its own thread has marked it active, so closing in that window leaves
-        // the thread running and close() waiting on it. Let both feeds open first; a feed that cannot open on this
-        // host exits by itself, so the wait is bounded rather than required.
-        feedsSettled.await(5, TimeUnit.SECONDS);
         channel.close();
 
         assertTrue("nothing the channel scheduled survives close: " + scheduler.getQueue(), scheduler.getQueue().isEmpty());

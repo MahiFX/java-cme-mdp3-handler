@@ -115,10 +115,11 @@ public class MdpFeedWorker implements Runnable {
         }
     }
 
+    /** Releases whatever open() managed to allocate; safe on a worker that never opened or failed part-way. */
     public void close() throws IOException {
-        if (selector.isOpen()) selector.close();
-        if (this.membershipKey.isValid()) this.membershipKey.drop();
-        if (this.multicastChannel.isOpen()) {
+        if (selector != null && selector.isOpen()) selector.close();
+        if (this.membershipKey != null && this.membershipKey.isValid()) this.membershipKey.drop();
+        if (this.multicastChannel != null && this.multicastChannel.isOpen()) {
             this.multicastChannel.close();
         }
     }
@@ -144,6 +145,14 @@ public class MdpFeedWorker implements Runnable {
             open();
         } catch (Exception e) {
             logger.error("Failed to open Feed", e);
+            // open() can fail after allocating the socket and selector, and no thread is left to run this worker,
+            // so release them and return to STOPPED rather than staying ACTIVE with nothing behind it.
+            try {
+                close();
+            } catch (IOException closeFailure) {
+                logger.error("Failed to release a feed that did not open", closeFailure);
+            }
+            this.feedState.set(STOPPED);
             return;
         }
         notifyStarted();
