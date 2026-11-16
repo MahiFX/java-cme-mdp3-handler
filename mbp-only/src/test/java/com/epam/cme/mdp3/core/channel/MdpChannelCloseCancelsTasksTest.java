@@ -53,15 +53,19 @@ public class MdpChannelCloseCancelsTasksTest {
 
     /** A feed started once the channel is closing must not leave a statistics task behind. */
     @Test
-    public void aFeedStartedAfterCloseLeavesNoStatisticsTask() throws Exception {
+    public void aFeedStartedAfterCloseStartsNothing() throws Exception {
         final MdpChannel channel = channel();
         channel.close();
 
         channel.startIncrementalFeedA();
-        try {
-            assertTrue("nothing scheduled survives a closed channel: " + scheduler.getQueue(), scheduler.getQueue().isEmpty());
-        } finally {
-            channel.close();
+        channel.startSnapshotFeedA();
+        channel.startInstrumentFeedA();
+
+        assertTrue("nothing scheduled on a closed channel: " + scheduler.getQueue(), scheduler.getQueue().isEmpty());
+        for (String worker : new String[]{"incrementalFeedA", "snapshotFeedA", "instrumentFeedA"}) {
+            final java.lang.reflect.Field f = MdpChannelImpl.class.getDeclaredField(worker);
+            f.setAccessible(true);
+            assertTrue("no " + worker + " is created on a closed channel", f.get(channel) == null);
         }
     }
 

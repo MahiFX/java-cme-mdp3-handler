@@ -72,6 +72,18 @@ public class MdpFeedWorkerOpenFailureTest {
         assertFalse(worker.isActive());
     }
 
+    /** A start request on a terminated worker must not cancel its shutdown and bring it back. */
+    @Test
+    public void aTerminatedWorkerCannotBeRevivedByCancellingItsShutdown() throws Exception {
+        MdpFeedWorker worker = workerThatFailsToJoin();
+        assertTrue("made ACTIVE as a running worker would be", worker.isRunnable());
+
+        worker.terminate();
+
+        assertFalse("cancelling the shutdown is refused", worker.cancelShutdownIfStarted());
+        assertFalse(worker.isActive());
+    }
+
     /** close() on a worker that never opened (or failed part-way) must not throw. */
     @Test
     public void closeIsSafeOnAWorkerThatNeverOpened() throws Exception {

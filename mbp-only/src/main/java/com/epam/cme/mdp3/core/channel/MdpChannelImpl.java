@@ -48,6 +48,7 @@ public class MdpChannelImpl implements MdpChannel {
     private final ScheduledExecutorService scheduledExecutorService;
     // The scheduler is supplied and usually outlives this channel, so close() cancels what the channel put on it.
     private final List<ScheduledFuture<?>> scheduledTasks = new CopyOnWriteArrayList<>();
+    // Raised first in close(): feed starts are refused from then on, and a stats task registered concurrently cancels itself.
     private volatile boolean closing;
     private int rcvBufSize = MdpFeedWorker.RCV_BUFFER_SIZE;
 
@@ -362,6 +363,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startIncrementalFeedA() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (incrementalFeedA == null) {
             synchronized (this) {
                 if (incrementalFeedA == null) {
@@ -389,6 +393,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startIncrementalFeedB() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (incrementalFeedB == null) {
             synchronized (this) {
                 if (incrementalFeedB == null) {
@@ -408,6 +415,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startSnapshotFeedA() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (snapshotFeedA == null) {
             synchronized (this) {
                 if (snapshotFeedA == null) {
@@ -427,6 +437,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startSnapshotFeedB() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (snapshotFeedB == null) {
             synchronized (this) {
                 if (snapshotFeedB == null) {
@@ -446,6 +459,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startInstrumentFeedA() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (instrumentFeedA == null) {
             synchronized (this) {
                 if (instrumentFeedA == null) {
@@ -465,6 +481,9 @@ public class MdpChannelImpl implements MdpChannel {
 
     @Override
     public void startInstrumentFeedB() throws MdpFeedException {
+        if (closing) {
+            return;
+        }
         if (instrumentFeedB == null) {
             synchronized (this) {
                 if (instrumentFeedB == null) {

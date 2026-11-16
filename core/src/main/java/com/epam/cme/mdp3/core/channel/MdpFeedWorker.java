@@ -266,8 +266,9 @@ public class MdpFeedWorker implements Runnable {
         return this.feedState.get() == PENDING_SHUTDOWN || this.feedState.get() == SHUTDOWN;
     }
 
+    /** Refused once terminated, so a late start request cannot bring a closed channel's worker back. */
     public boolean cancelShutdownIfStarted() {
-        return this.feedState.compareAndSet(PENDING_SHUTDOWN, ACTIVE);
+        return !terminated && this.feedState.compareAndSet(PENDING_SHUTDOWN, ACTIVE);
     }
 
     public boolean shutdown() {
