@@ -51,6 +51,20 @@ public class MdpChannelCloseCancelsTasksTest {
         }
     }
 
+    /** A feed started once the channel is closing must not leave a statistics task behind. */
+    @Test
+    public void aFeedStartedAfterCloseLeavesNoStatisticsTask() throws Exception {
+        final MdpChannel channel = channel();
+        channel.close();
+
+        channel.startIncrementalFeedA();
+        try {
+            assertTrue("nothing scheduled survives a closed channel: " + scheduler.getQueue(), scheduler.getQueue().isEmpty());
+        } finally {
+            channel.close();
+        }
+    }
+
     @Test
     public void closeCancelsTheIdleCheck() throws Exception {
         final MdpChannel channel = channel();

@@ -47,6 +47,7 @@ public class MdpFeedWorker implements Runnable {
     private final List<MdpFeedListener> listeners = new ArrayList<>();
     private DatagramChannel multicastChannel;
     private MembershipKey membershipKey;
+    private volatile boolean terminated;
     private Selector selector;
     private NetworkInterface ni;
     private MdpFeedContext feedContext;
@@ -128,6 +129,15 @@ public class MdpFeedWorker implements Runnable {
         return this.feedState.compareAndSet(STOPPED, ACTIVE);
     }
 
+    /**
+     * Stops this worker for good, including a thread that has been started but not yet run: shutdown() is ignored
+     * until the worker is ACTIVE, so without this a late thread could still activate and open after its channel closed.
+     */
+    public void terminate() {
+        this.terminated = true;
+        shutdown();
+    }
+
     @Override
     public void run() {
         /*
@@ -139,6 +149,12 @@ public class MdpFeedWorker implements Runnable {
         }
         // if impossible to switch from stopped state to active, then we should not continue (concurrently illegal state)
         if (!isRunnable()) {
+            return;
+        }
+        // Checked after activating: a terminate() before this point is seen here, and one after it finds the worker
+        // ACTIVE, where its shutdown() takes effect.
+        if (terminated) {
+            this.feedState.set(STOPPED);
             return;
         }
         try {

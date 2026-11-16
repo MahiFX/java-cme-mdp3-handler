@@ -48,6 +48,7 @@ public class MdpChannelImpl implements MdpChannel {
     private final ScheduledExecutorService scheduledExecutorService;
     // The scheduler is supplied and usually outlives this channel, so close() cancels what the channel put on it.
     private final List<ScheduledFuture<?>> scheduledTasks = new CopyOnWriteArrayList<>();
+    private volatile boolean closing;
     private int rcvBufSize = MdpFeedWorker.RCV_BUFFER_SIZE;
 
     private volatile MdpFeedWorker incrementalFeedA;
@@ -157,6 +158,10 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void closeFeed(final Thread thread, final MdpFeedWorker feedWorker) throws IOException, InterruptedException {
+        if (feedWorker != null) {
+            // Stops for good a thread started but not yet run, which would otherwise activate after this close.
+            feedWorker.terminate();
+        }
         if (thread != null) {
             // A worker only accepts shutdown once its own thread has marked it ACTIVE, so a feed started a moment ago
             // may have ignored stopAllFeeds(). Keep asking while joining, with a bound, instead of joining for ever.
@@ -185,11 +190,13 @@ public class MdpChannelImpl implements MdpChannel {
         } finally {
             this.channelController.unlock();
         }
+        // Set before cancelling: a task registered concurrently is either in the list this loop reads, or sees the
+        // flag in scheduleStats() and cancels itself.
+        closing = true;
         stopAllFeeds();
         for (ScheduledFuture<?> task : scheduledTasks) {
             task.cancel(false);
         }
-        scheduledTasks.clear();
         try {
             closeFeed(incrementalFeedAThread, incrementalFeedA);
             closeFeed(incrementalFeedBThread, incrementalFeedB);
@@ -373,7 +380,11 @@ public class MdpChannelImpl implements MdpChannel {
     }
 
     private void scheduleStats(MdpFeedWorker feedWorker) {
-        scheduledTasks.add(scheduledExecutorService.scheduleAtFixedRate(feedWorker::printStats, 60, 60, TimeUnit.SECONDS));
+        final ScheduledFuture<?> task = scheduledExecutorService.scheduleAtFixedRate(feedWorker::printStats, 60, 60, TimeUnit.SECONDS);
+        scheduledTasks.add(task);
+        if (closing) {
+            task.cancel(false);
+        }
     }
 
     @Override

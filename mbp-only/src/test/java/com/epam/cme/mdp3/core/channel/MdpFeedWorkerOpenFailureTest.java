@@ -57,6 +57,21 @@ public class MdpFeedWorkerOpenFailureTest {
         assertTrue("and it can be made runnable again", worker.isRunnable());
     }
 
+    /**
+     * A channel closing a feed whose thread has not yet run marks the worker terminated, since its shutdown request is
+     * ignored until the worker is ACTIVE. When that thread finally runs it must not open anything or stay ACTIVE.
+     */
+    @Test
+    public void aTerminatedWorkerDoesNotOpenWhenItsThreadFinallyRuns() throws Exception {
+        MdpFeedWorker worker = workerThatFailsToJoin();
+
+        worker.terminate();
+        worker.run();
+
+        assertTrue("it never got as far as opening a socket", field(worker, "multicastChannel") == null);
+        assertFalse(worker.isActive());
+    }
+
     /** close() on a worker that never opened (or failed part-way) must not throw. */
     @Test
     public void closeIsSafeOnAWorkerThatNeverOpened() throws Exception {
